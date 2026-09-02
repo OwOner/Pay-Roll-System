@@ -1,0 +1,131 @@
+import { createClient } from "@/lib/supabase/server"
+import { notFound } from "next/navigation"
+import { Card } from "@/components/ui/card"
+import { AlertCircle, CheckCircle, Clock, XCircle, FileText, ChevronRight } from "lucide-react"
+import Link from "next/link"
+import PayrollActions from "./actions-client"
+
+export default async function PayrollRunDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const supabase = await createClient()
+
+  // 1. Fetch Payroll Run Details
+  const [{ data: run, error }, { data: history }] = await Promise.all([
+    supabase
+      .from('payroll_runs')
+      .select(`
+        id,
+        payroll_period_id,
+        status,
+        created_at,
+        created_by,
+        payroll_periods ( period_start, period_end, pay_date, pay_frequency )
+      `)
+      .eq('id', id)
+      .single(),
+    supabase
+      .from('payroll_status_history')
+      .select(`
+        status,
+        reason,
+        created_at,
+        changed_by
+      `)
+      .eq('payroll_run_id', id)
+      .order('created_at', { ascending: false })
+  ])
+
+  if (error || !run) {
+    notFound()
+  }
+
+  // 3. Fetch Items (STUB: Would map actual employee details)
+  const items = [
+    // We mock this since Phase 8 preview didn't really write to DB yet. 
+    // In production, we'd query `payroll_items` here.
+  ]
+
+  const payrollRun = run! as any;
+
+  function getStatusIcon() {
+    switch (payrollRun.status) {
+      case 'Pending Approval': return <AlertCircle className="w-8 h-8 text-orange-600" />
+      case 'Approved':
+      case 'Paid': return <CheckCircle className="w-8 h-8 text-emerald-600" />
+      case 'Rejected': return <XCircle className="w-8 h-8 text-red-600" />
+      default: return <Clock className="w-8 h-8 text-slate-400" />
+    }
+  }
+
+  return (
+    <div className="space-y-8 max-w-7xl mx-auto pb-12">
+      <div className="flex items-center gap-2 text-sm font-medium text-slate-500 mb-4">
+        <Link href="/payroll" className="hover:text-slate-900 transition-colors">Payroll</Link>
+        <ChevronRight className="w-4 h-4" />
+        <span className="text-slate-900">Run Details</span>
+      </div>
+
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+            {getStatusIcon()}
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
+              Payroll: {new Date(payrollRun.payroll_periods.period_start).toLocaleDateString()} - {new Date(payrollRun.payroll_periods.period_end).toLocaleDateString()}
+            </h2>
+            <div className="flex items-center gap-2 text-slate-500 mt-1 font-medium">
+              <span>{payrollRun.payroll_periods.pay_frequency}</span>
+              <span>•</span>
+              <span className={`
+                ${run.status === 'Pending Approval' ? 'text-orange-600' : ''}
+                ${(run.status === 'Approved' || run.status === 'Paid') ? 'text-emerald-600' : ''}
+                ${run.status === 'Rejected' ? 'text-red-600' : ''}
+              `}>
+                {run.status}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <PayrollActions runId={run.id} status={run.status} />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2 space-y-6">
+          <Card className="bg-white rounded-xl border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-900">Employee Details</h3>
+            </div>
+            <div className="p-6 text-center text-slate-500">
+              <FileText className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+              <p>Items will be listed here after calculation.</p>
+            </div>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="bg-white rounded-xl border-slate-200 shadow-sm p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-6">Status History</h3>
+            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+              {history?.map((h: any, i: number) => (
+                <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-100 text-slate-500 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm z-10">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div className="flex items-center justify-between space-x-2 mb-1">
+                      <div className="font-bold text-slate-900">{h.status}</div>
+                      <time className="text-xs font-medium text-slate-500">{new Date(h.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</time>
+                    </div>
+                    <div className="text-slate-500 text-sm">{h.reason}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}

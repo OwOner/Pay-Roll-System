@@ -1,0 +1,18 @@
+-- Disable RLS on core tables
+ALTER TABLE public.departments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.positions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employees DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employee_compensation_history DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employee_deductions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_periods DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_runs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_items DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.government_contribution_tables DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.government_contribution_brackets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tax_tables DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tax_brackets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.company_settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.roles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_status_history DISABLE ROW LEVEL SECURITY;
