@@ -8,7 +8,7 @@ const adminSupabase = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
 )
 
-export async function initializeDefaultTaxes() {
+export async function initializeDefaultTaxes(formData?: FormData) {
   // 1. Create Tax Table
   const { data: taxTable, error: tableError } = await adminSupabase
     .from('tax_tables')
@@ -100,7 +100,7 @@ export async function toggleTaxTableActive(formData: FormData) {
   revalidatePath('/settings/tax')
 }
 
-export async function createNewTaxTable() {
+export async function createNewTaxTable(formData?: FormData) {
   await adminSupabase
     .from('tax_tables')
     .insert({

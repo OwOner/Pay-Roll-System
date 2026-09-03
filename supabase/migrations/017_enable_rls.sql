@@ -1,0 +1,18 @@
+-- Enable RLS on core tables
+ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.positions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employee_compensation_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employee_deductions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_periods ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.government_contribution_tables ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.government_contribution_brackets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tax_tables ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tax_brackets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.company_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_status_history ENABLE ROW LEVEL SECURITY;

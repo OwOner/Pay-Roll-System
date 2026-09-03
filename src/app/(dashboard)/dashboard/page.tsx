@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Users, Banknote, Landmark, AlertCircle, ArrowUpRight, TrendingUp, Sparkles, Activity } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
+import Link from "next/link"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -219,7 +220,7 @@ export default async function DashboardPage() {
           <p className="text-sm text-slate-500 mb-6">Common tasks to get you started quickly.</p>
           
           <div className="flex flex-col gap-4">
-            <button className="relative flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-orange-300 hover:shadow-md hover:shadow-orange-500/10 transition-all duration-300 group overflow-hidden">
+            <Link href="/payroll/run" className="relative flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-orange-300 hover:shadow-md hover:shadow-orange-500/10 transition-all duration-300 group overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-orange-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative flex items-center gap-4">
                 <div className="p-2.5 rounded-xl bg-orange-100/50 text-orange-600 group-hover:scale-110 transition-transform">
@@ -230,9 +231,9 @@ export default async function DashboardPage() {
               <div className="relative w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 group-hover:bg-orange-100 transition-colors">
                 <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-orange-600 transition-colors" />
               </div>
-            </button>
+            </Link>
             
-            <button className="relative flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-blue-300 hover:shadow-md hover:shadow-blue-500/10 transition-all duration-300 group overflow-hidden">
+            <Link href="/employees/new" className="relative flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-blue-300 hover:shadow-md hover:shadow-blue-500/10 transition-all duration-300 group overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative flex items-center gap-4">
                 <div className="p-2.5 rounded-xl bg-blue-100/50 text-blue-600 group-hover:scale-110 transition-transform">
@@ -243,9 +244,9 @@ export default async function DashboardPage() {
               <div className="relative w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 group-hover:bg-blue-100 transition-colors">
                 <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
               </div>
-            </button>
+            </Link>
             
-            <button className="relative flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-500/10 transition-all duration-300 group overflow-hidden">
+            <Link href="/leave" className="relative flex items-center justify-between p-4 rounded-2xl bg-white border border-slate-200/60 shadow-sm hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-500/10 transition-all duration-300 group overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-emerald-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative flex items-center gap-4">
                 <div className="p-2.5 rounded-xl bg-emerald-100/50 text-emerald-600 group-hover:scale-110 transition-transform">
@@ -256,7 +257,7 @@ export default async function DashboardPage() {
               <div className="relative w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 group-hover:bg-emerald-100 transition-colors">
                 <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-emerald-600 transition-colors" />
               </div>
-            </button>
+            </Link>
           </div>
         </Card>
       </div>

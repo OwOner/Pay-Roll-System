@@ -5,9 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Pencil, ArrowLeft, Plus } from "lucide-react"
+import { Pencil, ArrowLeft, User } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { UpdateCompensationDialog } from "./update-compensation-dialog"
+import { AccountAccessTab } from "./account-access-tab"
 
 export default async function EmployeeProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -23,7 +25,8 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
       *,
       departments(name),
       positions(title),
-      employee_compensation_history(*)
+      employee_compensation_history(*),
+      profiles(*)
     `)
     .eq('id', id)
     .single()
@@ -45,10 +48,17 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
             </Button>
           </Link>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">
+            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+              {employee.avatar_url ? (
+                <Image src={employee.avatar_url} alt={employee.first_name} width={40} height={40} className="rounded-full object-cover w-10 h-10 border" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center border text-slate-500">
+                  <User className="w-5 h-5" />
+                </div>
+              )}
               {employee.first_name} {employee.last_name}
             </h2>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 ml-13">
               <Badge variant={employee.employment_status === 'Active' ? 'default' : 'secondary'}>
                 {employee.employment_status}
               </Badge>
@@ -64,15 +74,17 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
         </Link>
       </div>
 
-      <Tabs defaultValue="profile" className="w-full">
-        <TabsList>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="compensation">Compensation</TabsTrigger>
-          <TabsTrigger value="deductions">Deductions</TabsTrigger>
-          <TabsTrigger value="leave">Leave Balances</TabsTrigger>
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="leave">Leave</TabsTrigger>
+          <TabsTrigger value="payroll_history">Payroll History</TabsTrigger>
+          <TabsTrigger value="account">Account & Access</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile" className="mt-6">
+        <TabsContent value="overview" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
@@ -95,6 +107,14 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
                   <div>
                     <div className="text-sm font-medium text-muted-foreground">Birth Date</div>
                     <div>{employee.birth_date ? new Date(employee.birth_date).toLocaleDateString() : '-'}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">Gender</div>
+                    <div>{employee.gender || '-'}</div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="text-sm font-medium text-muted-foreground">Location</div>
+                    <div>{employee.location || '-'}</div>
                   </div>
                 </div>
               </CardContent>
@@ -171,7 +191,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
                     <TableHead>End Date</TableHead>
                     <TableHead>Salary Type</TableHead>
                     <TableHead>Frequency</TableHead>
-                    <TableHead className="text-right">Basic Salary</TableHead>
+                    <TableHead className="text-right">Rate</TableHead>
                     <TableHead className="text-right">Daily Rate</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -200,14 +220,14 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
           </Card>
         </TabsContent>
         
-        <TabsContent value="deductions" className="mt-6">
+        <TabsContent value="attendance" className="mt-6">
            <Card>
              <CardHeader>
-               <CardTitle>Recurring Deductions</CardTitle>
-               <CardDescription>Loans and other scheduled deductions.</CardDescription>
+               <CardTitle>Attendance Records</CardTitle>
+               <CardDescription>Daily time records and history.</CardDescription>
              </CardHeader>
              <CardContent className="py-8 text-center text-muted-foreground">
-               Deductions feature coming soon.
+               Attendance records will appear here.
              </CardContent>
            </Card>
         </TabsContent>
@@ -215,13 +235,29 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
         <TabsContent value="leave" className="mt-6">
            <Card>
              <CardHeader>
-               <CardTitle>Leave Balances</CardTitle>
+               <CardTitle>Leave Balances & History</CardTitle>
                <CardDescription>Current available leave credits.</CardDescription>
              </CardHeader>
              <CardContent className="py-8 text-center text-muted-foreground">
                Leave balance feature coming soon.
              </CardContent>
            </Card>
+        </TabsContent>
+
+        <TabsContent value="payroll_history" className="mt-6">
+           <Card>
+             <CardHeader>
+               <CardTitle>Payslips</CardTitle>
+               <CardDescription>Past payroll records.</CardDescription>
+             </CardHeader>
+             <CardContent className="py-8 text-center text-muted-foreground">
+               Payroll history will appear here.
+             </CardContent>
+           </Card>
+        </TabsContent>
+
+        <TabsContent value="account" className="mt-6">
+          <AccountAccessTab employee={employee} profile={employee.profiles?.[0]} />
         </TabsContent>
 
       </Tabs>

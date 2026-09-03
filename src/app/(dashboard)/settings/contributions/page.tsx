@@ -25,13 +25,16 @@ export default async function ContributionsSettingsPage() {
           <CardContent className="flex flex-col items-center justify-center py-10">
             <p className="text-muted-foreground mb-4">No configuration found.</p>
             {type === 'SSS' && (
-              <form action={async (_fd) => { "use server"; await initializeSSS(); }}><Button type="submit" variant="outline">Initialize SSS 2025</Button></form>
+              // @ts-ignore
+              <form action={initializeSSS}><Button type="submit" variant="outline">Initialize SSS 2025</Button></form>
             )}
             {type === 'PhilHealth' && (
-              <form action={async (_fd) => { "use server"; await initializePhilHealth(); }}><Button type="submit" variant="outline">Initialize PhilHealth</Button></form>
+              // @ts-ignore
+              <form action={initializePhilHealth}><Button type="submit" variant="outline">Initialize PhilHealth</Button></form>
             )}
             {type === 'Pag-IBIG' && (
-              <form action={async (_fd) => { "use server"; await initializePagIBIG(); }}><Button type="submit" variant="outline">Initialize Pag-IBIG</Button></form>
+              // @ts-ignore
+              <form action={initializePagIBIG}><Button type="submit" variant="outline">Initialize Pag-IBIG</Button></form>
             )}
           </CardContent>
         </Card>

@@ -132,10 +132,28 @@ export async function loadPayrollContext(
     max_compensation: new Decimal(10000)
   };
 
+  // Fetch Attendance
+  const { data: attendanceData } = await supabase
+    .from('attendance_records')
+    .select('*')
+    .eq('employee_id', employeeId)
+    .gte('work_date', periodData.period_start)
+    .lte('work_date', periodData.period_end);
+
+  const mappedAttendance = attendanceData ? attendanceData.map((a: any) => ({
+    id: a.id,
+    record_date: a.work_date,
+    status: a.status,
+    regular_hours_worked: new Decimal(a.regular_hours || 0),
+    overtime_hours: new Decimal(a.overtime_hours || 0),
+    night_differential_hours: new Decimal(a.night_differential_hours || 0),
+    is_rest_day: a.is_rest_day || false
+  })) : [];
+
   return {
     employee: empData,
     period: periodData,
-    attendance: [], // We don't have attendance module yet, so empty arrays
+    attendance: mappedAttendance,
     leaves: [],
     holidays: [],
     adjustments: [], // No manual adjustments initially

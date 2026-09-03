@@ -15,14 +15,32 @@ export async function addCompensationHistory(formData: FormData) {
     return { error: "Missing required fields" }
   }
 
-  // Basic assumptions for salary type depending on frequency, standardizing on Monthly
-  // We can default salary_type to 'Monthly' based on standard Philippine payroll
-  const salary_type = 'Monthly' 
+  const salary_type = pay_frequency; 
   
-  // Calculate standard daily rate = (Monthly * 12) / 313 (Standard PH calculation)
-  // or (Monthly * 12) / 261. Let's just use 261 for 5 days a week.
-  const daily_rate = (basic_salary * 12) / 261
-  const hourly_rate = daily_rate / 8
+  // Calculate standard daily rate based on frequency (using 261 days/year)
+  let annualized_salary = 0;
+  switch (pay_frequency) {
+    case 'Weekly':
+      annualized_salary = basic_salary * 52;
+      break;
+    case 'Bi-weekly':
+      annualized_salary = basic_salary * 26;
+      break;
+    case 'Semi-monthly':
+      annualized_salary = basic_salary * 24;
+      break;
+    case 'Monthly':
+      annualized_salary = basic_salary * 12;
+      break;
+    case 'Daily':
+      annualized_salary = basic_salary * 261;
+      break;
+    default:
+      annualized_salary = basic_salary * 12; // Fallback
+  }
+
+  const daily_rate = annualized_salary / 261;
+  const hourly_rate = daily_rate / 8;
 
   // First, get the most recent compensation to check dates
   const { data: previousComps, error: fetchError } = await supabase

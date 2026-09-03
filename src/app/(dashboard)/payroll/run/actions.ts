@@ -147,31 +147,21 @@ export async function submitPayrollRun(formData: FormData, status: 'Draft' | 'Pe
         const context = await loadPayrollContext(emp.id, start, end, freq as any);
         const result = calculatePayroll(context);
         
-        // Insert payroll_item
-        const { data: payrollItem, error: itemErr } = await supabase
-          .from('payroll_items')
-          .insert({
-            payroll_run_id: run.id,
-            employee_id: emp.id,
-            gross_pay: result.gross_pay.toNumber(),
-            taxable_compensation: result.taxable_compensation.toNumber(),
-            non_taxable_compensation: result.non_taxable_compensation.toNumber(),
-            total_employee_deductions: result.total_employee_deductions.toNumber(),
-            total_employer_contributions: result.total_employer_contributions.toNumber(),
-            net_pay: result.net_pay.toNumber(),
-            sss_employee: result.sss_employee.toNumber(),
-            sss_employer: result.sss_employer.toNumber(),
-            sss_ec: result.sss_ec.toNumber(),
-            philhealth_employee: result.philhealth_employee.toNumber(),
-            philhealth_employer: result.philhealth_employer.toNumber(),
-            pagibig_employee: result.pagibig_employee.toNumber(),
-            pagibig_employer: result.pagibig_employer.toNumber(),
-            withholding_tax: result.withholding_tax.toNumber(),
-            calculation_engine_version: result.calculation_engine_version,
-            snapshots: result.snapshots
-          })
-          .select('id')
-          .single()
+          const { data: payrollItem, error: itemErr } = await supabase
+            .from('payroll_items')
+            .insert({
+              payroll_run_id: run.id,
+              employee_id: emp.id,
+              gross_pay: result.gross_pay.toNumber(),
+              taxable_income: result.taxable_compensation.toNumber(),
+              non_taxable_income: result.non_taxable_compensation.toNumber(),
+              total_deductions: result.total_employee_deductions.toNumber(),
+              net_pay: result.net_pay.toNumber(),
+              withholding_tax: result.withholding_tax.toNumber(),
+              calculation_engine_version: result.calculation_engine_version,
+            })
+            .select('id')
+            .single()
 
         if (!itemErr && payrollItem) {
           // Insert earnings

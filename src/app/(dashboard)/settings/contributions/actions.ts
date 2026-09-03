@@ -8,7 +8,7 @@ const adminSupabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export async function initializePhilHealth() {
+export async function initializePhilHealth(formData?: FormData) {
   const { data: table, error: tableError } = await adminSupabase
     .from('government_contribution_tables')
     .insert({
@@ -72,7 +72,7 @@ export async function initializePhilHealth() {
   return { success: true }
 }
 
-export async function initializePagIBIG() {
+export async function initializePagIBIG(formData?: FormData) {
   const { data: table, error: tableError } = await adminSupabase
     .from('government_contribution_tables')
     .insert({
@@ -131,7 +131,7 @@ export async function initializePagIBIG() {
   return { success: true }
 }
 
-export async function initializeSSS() {
+export async function initializeSSS(formData?: FormData) {
   const { data: table, error: tableError } = await adminSupabase
     .from('government_contribution_tables')
     .insert({

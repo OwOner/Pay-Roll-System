@@ -22,7 +22,7 @@ export default async function TaxSettingsPage() {
             Manage Philippine tax tables and brackets (TRAIN/CREATE Law).
           </p>
         </div>
-        <form action={async () => { "use server"; await createNewTaxTable(); }}>
+        <form action={createNewTaxTable}>
           <Button type="submit">
             <Plus className="mr-2 h-4 w-4" />
             New Tax Table
@@ -34,7 +34,8 @@ export default async function TaxSettingsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-10">
             <p className="text-muted-foreground mb-4">No tax tables configured yet.</p>
-            <form action={async () => { "use server"; await initializeDefaultTaxes(); }}>
+            {/* @ts-ignore */}
+            <form action={initializeDefaultTaxes}>
               <Button type="submit" variant="outline">Initialize Default PH Tax Table</Button>
             </form>
           </CardContent>

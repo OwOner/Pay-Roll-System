@@ -39,11 +39,17 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
     notFound()
   }
 
-  // 3. Fetch Items (STUB: Would map actual employee details)
-  const items = [
-    // We mock this since Phase 8 preview didn't really write to DB yet. 
-    // In production, we'd query `payroll_items` here.
-  ]
+  // 2. Fetch Items
+  const { data: items } = await supabase
+    .from('payroll_items')
+    .select(`
+      id,
+      gross_pay,
+      net_pay,
+      total_deductions,
+      employees ( first_name, last_name, employee_code )
+    `)
+    .eq('payroll_run_id', id)
 
   const payrollRun = run! as any;
 
@@ -94,12 +100,52 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-6">
           <Card className="bg-white rounded-xl border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900">Employee Details</h3>
+              <div className="text-sm text-slate-500 font-medium">Total Items: {items?.length || 0}</div>
             </div>
-            <div className="p-6 text-center text-slate-500">
-              <FileText className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-              <p>Items will be listed here after calculation.</p>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
+                  <tr>
+                    <th className="px-6 py-3 font-medium">Employee</th>
+                    <th className="px-6 py-3 font-medium text-right">Gross Pay</th>
+                    <th className="px-6 py-3 font-medium text-right">Deductions</th>
+                    <th className="px-6 py-3 font-medium text-right">Net Pay</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(!items || items.length === 0) ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
+                        <FileText className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                        <p>No items found for this payroll run.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    items.map(item => (
+                      <tr key={item.id} className="hover:bg-slate-50">
+                        <td className="px-6 py-4">
+                          <div className="font-medium text-slate-900">
+                            {(item.employees as any)?.first_name} {(item.employees as any)?.last_name}
+                          </div>
+                          <div className="text-xs text-slate-500">{(item.employees as any)?.employee_code}</div>
+                        </td>
+                        <td className="px-6 py-4 text-right font-medium">
+                          ₱{Number(item.gross_pay).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                        </td>
+                        <td className="px-6 py-4 text-right text-red-500">
+                          - ₱{Number(item.total_deductions).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                        </td>
+                        <td className="px-6 py-4 text-right font-bold text-emerald-600">
+                          ₱{Number(item.net_pay).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </Card>
         </div>

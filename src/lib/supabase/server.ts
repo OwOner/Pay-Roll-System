@@ -27,3 +27,59 @@ export async function createClient() {
     }
   )
 }
+
+// Use this strictly in Server Actions where admin privileges (e.g. auth.admin) are required
+export async function createAdminClient() {
+  const cookieStore = await cookies()
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          } catch {
+            // Ignored
+          }
+        },
+      },
+    }
+  )
+}
+import { redirect } from "next/navigation"
+
+export async function authorizeModule(moduleName: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    redirect('/login')
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('permissions, roles(name)')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile) redirect('/login')
+
+  const roleName = (profile?.roles as any)?.name
+
+  if (roleName === 'Super Admin') {
+    return true
+  }
+
+  if (profile.permissions && profile.permissions[moduleName] === true) {
+    return true
+  }
+
+  redirect('/dashboard?error=unauthorized')
+}

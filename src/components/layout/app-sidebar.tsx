@@ -10,49 +10,95 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { LayoutDashboard, Users, Calculator, FileText, Settings, History, Shield, LogOut } from "lucide-react"
+import { LayoutDashboard, Users, Calculator, FileText, Settings, History, Shield, LogOut, Clock, User } from "lucide-react"
 import Link from "next/link"
 import { logout } from "@/app/(auth)/login/actions"
 
+import { createClient } from "@/lib/supabase/server"
+
 const items = [
   {
+    id: "dashboard",
     title: "Dashboard",
     url: "/dashboard",
     icon: LayoutDashboard,
   },
   {
+    id: "employees",
     title: "Employees",
     url: "/employees",
     icon: Users,
   },
   {
+    id: "attendance",
+    title: "Attendance",
+    url: "/attendance",
+    icon: Clock,
+  },
+  {
+    id: "payroll",
     title: "Run Payroll",
     url: "/payroll",
     icon: Calculator,
   },
   {
+    id: "history",
     title: "Payroll History",
     url: "/history",
     icon: History,
   },
   {
+    id: "reports",
     title: "Reports",
     url: "/reports",
     icon: FileText,
   },
   {
+    id: "settings",
     title: "Settings",
     url: "/settings",
     icon: Settings,
   },
   {
+    id: "users",
     title: "Users & Roles",
     url: "/users",
     icon: Shield,
   },
 ]
 
-export function AppSidebar() {
+export async function AppSidebar() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  let allowedItems = [...items]
+  
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('permissions, roles(name)')
+      .eq('id', user.id)
+      .single()
+      
+    if (profile) {
+      const isSuperAdmin = (profile?.roles as any)?.name === "Super Admin"
+      if (!isSuperAdmin) {
+        allowedItems = items.filter(item => {
+          // If permissions JSON exists, check if this module is true
+          return profile.permissions?.[item.id] === true
+        })
+      }
+    }
+  }
+
+  // Always append My Account for authenticated users
+  allowedItems.push({
+    id: "account",
+    title: "My Account",
+    url: "/settings/account",
+    icon: User,
+  })
+
   return (
     <Sidebar>
       <SidebarHeader className="p-4 border-b">
@@ -63,7 +109,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {allowedItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     tooltip={item.title}

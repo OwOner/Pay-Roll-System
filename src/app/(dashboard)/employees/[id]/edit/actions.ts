@@ -12,7 +12,6 @@ export async function updateEmployee(id: string, formData: FormData) {
     last_name: formData.get("last_name") as string,
     email: formData.get("email") as string,
     phone: formData.get("phone") as string,
-    employee_code: formData.get("employee_code") as string,
     date_hired: formData.get("date_hired") as string,
     employment_type: formData.get("employment_type") as string,
     employment_status: formData.get("employment_status") as string,

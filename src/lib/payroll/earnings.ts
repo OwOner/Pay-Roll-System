@@ -42,13 +42,20 @@ export function calculateBasicPay(context: PayrollContext): EarningResult[] {
     const comp = getActiveCompensation(context.employee.history, record.record_date);
     if (!comp) continue; // No active compensation for this date!
 
-    // Assume 8 hours = 1 day for daily rate calculation
-    // Or if they are monthly, they might have a fixed amount per period,
-    // but for accurate daily proration, we'll use (daily_rate / 8) * hours
-    const hourlyRate = comp.daily_rate.div(8);
-    const dailyEarned = hourlyRate.mul(record.regular_hours_worked);
+    // If strictly hourly based, calculate from regular_hours_worked.
+    // If regular_hours is 0 but status is 'Present' (e.g. from Excel import),
+    // default to a full day's pay (daily_rate).
     
-    totalBasic = totalBasic.plus(dailyEarned);
+    if (record.status === 'Present' || record.regular_hours_worked.greaterThan(0)) {
+      if (record.regular_hours_worked.greaterThan(0)) {
+        const hourlyRate = comp.daily_rate.div(8);
+        const dailyEarned = hourlyRate.mul(record.regular_hours_worked);
+        totalBasic = totalBasic.plus(dailyEarned);
+      } else {
+        // Full day
+        totalBasic = totalBasic.plus(comp.daily_rate);
+      }
+    }
   }
 
   // If there are no attendance records but they are monthly paid, we might need a fallback,

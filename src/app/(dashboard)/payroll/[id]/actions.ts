@@ -10,7 +10,7 @@ export async function approvePayrollRun(payrollRunId: string) {
   // 0. Reconciliation Check
   const { data: runItems, error: itemsErr } = await supabase
     .from('payroll_items')
-    .select('id, gross_pay, net_pay, total_employee_deductions, payroll_earnings(amount), payroll_deductions(amount)')
+    .select('id, gross_pay, net_pay, total_deductions, payroll_earnings(amount), payroll_deductions(amount)')
     .eq('payroll_run_id', payrollRunId)
 
   if (itemsErr) return { error: itemsErr.message }
@@ -24,7 +24,7 @@ export async function approvePayrollRun(payrollRunId: string) {
       return { error: `Reconciliation failed: Gross pay ${item.gross_pay} does not match sum of earnings ${sumEarnings} for item ${item.id}.` }
     }
     
-    if (Math.abs(Number(item.gross_pay) - Number(item.total_employee_deductions) - Number(item.net_pay)) > 0.05) {
+    if (Math.abs(Number(item.gross_pay) - Number(item.total_deductions) - Number(item.net_pay)) > 0.05) {
       return { error: `Reconciliation failed: Net pay calculation mismatch for item ${item.id}.` }
     }
   }

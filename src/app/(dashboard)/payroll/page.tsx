@@ -1,9 +1,10 @@
 import { Card } from "@/components/ui/card"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, authorizeModule } from "@/lib/supabase/server"
 import Link from "next/link"
 import { PlayCircle, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react"
 
 export default async function PayrollDashboardPage() {
+  await authorizeModule('payroll')
   const supabase = await createClient()
 
   // Fetch all payroll runs

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
 import { updateEmployee } from "./actions"
 
@@ -83,7 +84,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="employee_code">Employee Code</Label>
-                  <Input id="employee_code" name="employee_code" defaultValue={employee.employee_code} required />
+                  <Input id="employee_code" name="employee_code" defaultValue={employee.employee_code} disabled />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="date_hired">Date Hired</Label>
@@ -91,11 +92,31 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="employment_type">Employment Type</Label>
-                  <Input id="employment_type" name="employment_type" defaultValue={employee.employment_type} required />
+                  <Select name="employment_type" defaultValue={employee.employment_type}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Regular">Regular</SelectItem>
+                      <SelectItem value="Project-based">Project-based</SelectItem>
+                      <SelectItem value="Probationary">Probationary</SelectItem>
+                      <SelectItem value="Contractual">Contractual</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="employment_status">Status</Label>
-                  <Input id="employment_status" name="employment_status" defaultValue={employee.employment_status} required />
+                  <Select name="employment_status" defaultValue={employee.employment_status}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                      <SelectItem value="Resigned">Resigned</SelectItem>
+                      <SelectItem value="Terminated">Terminated</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
