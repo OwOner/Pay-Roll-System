@@ -31,6 +31,10 @@ export default function AttendanceDetailDrawer({ open, onOpenChange, emp, date, 
   const [status, setStatus] = useState(record?.status || "Present")
   const [timeIn, setTimeIn] = useState(record?.time_in ? format(new Date(record.time_in), 'HH:mm') : "")
   const [timeOut, setTimeOut] = useState(record?.time_out ? format(new Date(record.time_out), 'HH:mm') : "")
+  const [otHours, setOtHours] = useState<string>(record?.overtime_hours?.toString() || "")
+  const [utHours, setUtHours] = useState<string>(
+    record?.internal_notes?.match(/Undertime: (\d+(\.\d+)?)/)?.[1] || ""
+  )
   const [projectId, setProjectId] = useState(record?.project_id || "")
   const [notes, setNotes] = useState(record?.internal_notes || "")
   const [reason, setReason] = useState("")
@@ -60,14 +64,24 @@ export default function AttendanceDetailDrawer({ open, onOpenChange, emp, date, 
     }
 
     setIsSubmitting(true)
+    
+    // Determine internal notes
+    let finalNotes = notes;
+    if (utHours) {
+        // Remove existing undertime string if present
+        finalNotes = finalNotes.replace(/Undertime: \d+(\.\d+)? hrs?/g, '').trim();
+        finalNotes = finalNotes ? `${finalNotes} | Undertime: ${utHours} hrs` : `Undertime: ${utHours} hrs`;
+    }
+
     const payload = {
       employee_id: emp.id,
       work_date: date,
       status,
       time_in: getIsoString(timeIn),
       time_out: getIsoString(timeOut),
+      overtime_hours: otHours ? parseFloat(otHours) : 0,
       project_id: projectId || null,
-      internal_notes: notes
+      internal_notes: finalNotes
     }
 
     const res = await updateAttendanceRecord(record?.id || null, payload, reason)
@@ -83,19 +97,21 @@ export default function AttendanceDetailDrawer({ open, onOpenChange, emp, date, 
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
-        <SheetHeader>
+      <SheetContent className="w-full sm:w-[540px] overflow-y-auto">
+        <SheetHeader className="px-4 sm:px-6 pt-4">
           <SheetTitle>Attendance Record</SheetTitle>
           <SheetDescription>
             {format(new Date(date), 'MMMM d, yyyy')} — {emp.first_name} {emp.last_name}
           </SheetDescription>
         </SheetHeader>
 
-        <div className="py-6 space-y-6">
+        <div className="py-6 px-4 sm:px-6 space-y-6">
           <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
              <div className="text-sm">
                <div className="text-muted-foreground mb-1">Source</div>
-               <Badge variant="outline" className="font-mono">{record?.last_modified_source || record?.source || 'manual_entry'}</Badge>
+               <Badge variant="secondary" className="font-medium bg-slate-100 text-slate-700">
+                 {(record?.last_modified_source || record?.source || 'manual_entry').split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+               </Badge>
              </div>
              {record?.last_modified_at && (
                <div className="text-sm text-right">
@@ -129,6 +145,17 @@ export default function AttendanceDetailDrawer({ open, onOpenChange, emp, date, 
             <div className="space-y-2">
               <Label>Time Out (Optional)</Label>
               <Input type="time" value={timeOut} onChange={e => setTimeOut(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Overtime (Hours)</Label>
+              <Input type="number" step="0.5" value={otHours} onChange={e => setOtHours(e.target.value)} placeholder="0" />
+            </div>
+            <div className="space-y-2">
+              <Label>Undertime (Hours)</Label>
+              <Input type="number" step="0.5" value={utHours} onChange={e => setUtHours(e.target.value)} placeholder="0" />
             </div>
           </div>
 
@@ -168,7 +195,7 @@ export default function AttendanceDetailDrawer({ open, onOpenChange, emp, date, 
 
         </div>
 
-        <SheetFooter>
+        <SheetFooter className="px-4 sm:px-6 pb-6 mt-auto">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSave} disabled={isSubmitting || (record && !reason.trim())}>
             {isSubmitting ? "Saving..." : "Save Record"}

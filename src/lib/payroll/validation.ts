@@ -43,7 +43,10 @@ export function validatePayrollResult(result: PayrollCalculationResult): void {
   }
 
   // 4. Net Pay = Gross Pay - Total Employee Deductions
-  const expectedNet = result.gross_pay.sub(result.total_employee_deductions);
+  let expectedNet = result.gross_pay.sub(result.total_employee_deductions);
+  if (expectedNet.lessThan(0)) {
+    expectedNet = new Decimal(0);
+  }
   if (!expectedNet.equals(result.net_pay)) {
     throw new PayrollValidationError(`Net pay mismatch. Expected ${expectedNet.toString()}, got ${result.net_pay.toString()}`);
   }
@@ -51,8 +54,6 @@ export function validatePayrollResult(result: PayrollCalculationResult): void {
   // 5. Ensure employer contributions did not reduce net pay
   // (Covered by constraint 4, but let's be explicit that deductions array .employer_amount is not in the net pay math)
 
-  // 6. Config sanity check
-  if (!result.snapshots.taxTableId || !result.snapshots.sssTableId || !result.snapshots.philhealthTableId || !result.snapshots.pagibigTableId) {
-    throw new PayrollValidationError("Missing configuration snapshot IDs in calculation result.");
-  }
+  // 6. Config sanity check (Tax and statutory can be null for 0 deduction fallback)
+  // We no longer strictly enforce snapshots to be present, as users may disable all of them
 }

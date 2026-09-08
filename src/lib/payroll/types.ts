@@ -60,10 +60,11 @@ export interface PhilhealthConfig {
 
 export interface PagibigConfig {
   id: string;
-  employee_rate_below_1500: Decimal; // e.g., 0.01 for 1%
-  employee_rate_above_1500: Decimal; // e.g., 0.02 for 2%
-  employer_rate: Decimal;            // e.g., 0.02 for 2%
-  max_compensation: Decimal;         // e.g., 5000
+  employee_rate_low: Decimal;   // rate for MFS <= salary_threshold (e.g. 0.01)
+  employee_rate_high: Decimal;  // rate for MFS > salary_threshold (e.g. 0.02)
+  salary_threshold: Decimal;    // the split threshold (e.g. ₱1,500)
+  employer_rate: Decimal;       // e.g. 0.02
+  max_compensation: Decimal;    // MFS ceiling (e.g. ₱10,000)
 }
 
 // -----------------------------------------------------------------------------
@@ -80,9 +81,10 @@ export interface EmployeeCompensation {
   id: string;
   effective_from: string;
   effective_to: string | null;
-  salary_type: "Monthly" | "Daily";
+  salary_type: "Monthly" | "Daily" | "Weekly" | "Hourly" | string;
   basic_salary: Decimal; // Monthly rate
   daily_rate: Decimal;   // Calculated daily rate
+  hourly_rate?: Decimal;
 }
 
 export interface EmployeeData {
@@ -101,6 +103,36 @@ export interface AttendanceRecord {
   night_differential_hours: Decimal;
   is_rest_day: boolean;
   status: string;
+}
+
+export interface TimesheetDetail {
+  id: string;
+  timesheet_id: string;
+  date: string;
+  day_type: string;
+  scheduled_hours: Decimal;
+  regular_hours: Decimal;
+  recorded_ot_hours: Decimal;
+  approved_ot_hours: Decimal;
+  payable_ot_hours: Decimal;
+  recorded_ut_hours: Decimal;
+  excused_ut_hours: Decimal;
+  payable_ut_hours: Decimal;
+}
+
+export interface Timesheet {
+  id: string;
+  employee_id: string;
+  period_start: string;
+  period_end: string;
+  total_regular_hours: Decimal;
+  total_recorded_ot_hours: Decimal;
+  total_payable_ot_hours: Decimal;
+  total_recorded_ut_hours: Decimal;
+  total_payable_ut_hours: Decimal;
+  absent_days: Decimal;
+  status: string;
+  details?: TimesheetDetail[];
 }
 
 export interface LeaveRecord {
@@ -144,16 +176,23 @@ export interface PayrollContext {
   employee: EmployeeData;
   period: PayrollPeriod;
   attendance: AttendanceRecord[];
+  timesheet: Timesheet; // Authoritative source for hours and absences
   leaves: LeaveRecord[];
   holidays: HolidayRecord[];
   adjustments: ManualAdjustment[];
   overrides?: PayrollOverride[];
   
   // Official Configurations
-  taxConfig: TaxTableConfig;
-  sssConfig: SssConfig;
-  philhealthConfig: PhilhealthConfig;
-  pagibigConfig: PagibigConfig;
+  taxConfig: TaxTableConfig | null;
+  sssConfig: SssConfig | null;
+  philhealthConfig: PhilhealthConfig | null;
+  pagibigConfig: PagibigConfig | null;
+  activePolicy: any; // Add activePolicy directly to context
+  statutoryApplicability: {
+    sss: boolean;
+    philhealth: boolean;
+    pagibig: boolean;
+  };
 }
 
 // -----------------------------------------------------------------------------
@@ -167,6 +206,9 @@ export interface EarningResult {
   overridden_amount?: Decimal; // If manual override was applied
   override_reason?: string;
   is_taxable: boolean;
+  is_sss_covered: boolean;
+  is_philhealth_covered: boolean;
+  is_pagibig_covered: boolean;
   source?: string;
   source_id?: string;
 }
@@ -179,6 +221,13 @@ export interface DeductionResult {
   overridden_amount?: Decimal; // If manual override was applied
   override_reason?: string;
   employer_amount?: Decimal; // EC, MPF Employer, etc. Do not deduct from net.
+  
+  // Tax & Statutory Flags
+  is_pre_tax?: boolean; // Does this reduce taxable compensation? (e.g. Absences, Statutory)
+  is_sss_deductible?: boolean; // Does this reduce SSS basis?
+  is_philhealth_deductible?: boolean; // Does this reduce PhilHealth basis?
+  is_pagibig_deductible?: boolean; // Does this reduce Pag-IBIG basis?
+
   source?: string;
   source_id?: string;
 }

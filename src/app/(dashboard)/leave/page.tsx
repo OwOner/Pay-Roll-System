@@ -3,8 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Plus, Check, X } from "lucide-react"
+import { Plus } from "lucide-react"
 import Link from "next/link"
+import { LeaveActionButtons } from "./leave-action-buttons"
 
 export default async function LeaveManagementPage() {
   const supabase = await createClient()
@@ -78,14 +79,7 @@ export default async function LeaveManagementPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         {leave.status === 'Pending' ? (
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" className="text-green-600 border-green-600 hover:bg-green-50">
-                              <Check className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50">
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <LeaveActionButtons leaveId={leave.id} />
                         ) : (
                           <Button variant="ghost" size="sm">View</Button>
                         )}

@@ -3,13 +3,11 @@ import {
   PayrollContext, 
   EarningResult,
   EmployeeCompensation,
-  AttendanceRecord
+  DeductionResult
 } from "./types";
+import { resolveDayRule, DayType } from "./day-rules";
+import { deriveHourlyRate, WorkPolicy } from "./rate-calculator";
 
-/**
- * Determines the active compensation for a specific date.
- * (Addresses Test 12 — Payroll period boundary)
- */
 export function getActiveCompensation(
   history: EmployeeCompensation[],
   dateStr: string
@@ -28,111 +26,136 @@ export function getActiveCompensation(
 }
 
 /**
- * Calculates Basic Pay for the period based on attendance.
- * If Daily Paid, it multiplies the daily rate by days worked (or uses hours).
- * If Monthly Paid, it uses the fixed semi-monthly/monthly rate, usually deducting absences.
- * For this prototype, we'll calculate based on regular hours worked.
+ * NEW ARCHITECTURE: Multiplicative calculation per day
  */
-export function calculateBasicPay(context: PayrollContext): EarningResult[] {
+export function calculateAttendanceBasedPay(
+  context: PayrollContext,
+  policy: WorkPolicy
+): { earnings: EarningResult[], deductions: DeductionResult[] } {
   const earnings: EarningResult[] = [];
+  const deductions: DeductionResult[] = [];
   
-  let totalBasic = new Decimal(0);
+  if (!context.timesheet) {
+    throw new Error("Missing timesheet for the payroll period.");
+  }
 
-  for (const record of context.attendance) {
-    const comp = getActiveCompensation(context.employee.history, record.record_date);
-    if (!comp) continue; // No active compensation for this date!
+  const details = context.timesheet.details || [];
 
-    // If strictly hourly based, calculate from regular_hours_worked.
-    // If regular_hours is 0 but status is 'Present' (e.g. from Excel import),
-    // default to a full day's pay (daily_rate).
-    
-    if (record.status === 'Present' || record.regular_hours_worked.greaterThan(0)) {
-      if (record.regular_hours_worked.greaterThan(0)) {
-        const hourlyRate = comp.daily_rate.div(8);
-        const dailyEarned = hourlyRate.mul(record.regular_hours_worked);
-        totalBasic = totalBasic.plus(dailyEarned);
-      } else {
-        // Full day
-        totalBasic = totalBasic.plus(comp.daily_rate);
-      }
+  let totalRegularEarnings = new Decimal(0);
+  let totalOtEarnings = new Decimal(0);
+  let totalNightEarnings = new Decimal(0);
+  let totalUtDeductions = new Decimal(0);
+
+  for (const detail of details) {
+    // 1. Get Active Compensation for this specific day
+    const comp = getActiveCompensation(context.employee.history, detail.date);
+    if (!comp) continue;
+
+    // 2. Derive Hourly Rate
+    const rates = deriveHourlyRate(comp, policy);
+    const baseHourlyRate = rates.baseHourlyRate;
+
+    // 3. Resolve Day Rules (Statutory vs Company)
+    const dayType = detail.day_type as DayType;
+    const rule = resolveDayRule(dayType, policy.custom_day_rules);
+
+    // 4. Calculate Earnings (Multiplicative Composition)
+    const regularHours = new Decimal(detail.regular_hours);
+    const payableOtHours = new Decimal(detail.payable_ot_hours);
+    const payableUtHours = new Decimal(detail.payable_ut_hours);
+    // Night hours would be provided by timesheet in a full implementation
+    const nightHours = new Decimal((detail as any).night_hours || 0);
+
+    // Regular Pay for the day: regular_hours * hourlyRate * BaseMultiplier
+    if (regularHours.greaterThan(0)) {
+       const dailyRegularPay = regularHours.mul(baseHourlyRate).mul(rule.baseMultiplier);
+       totalRegularEarnings = totalRegularEarnings.plus(dailyRegularPay);
+    }
+
+    // Overtime Pay: payable_ot * hourlyRate * BaseMultiplier * OTMultiplier
+    if (payableOtHours.greaterThan(0)) {
+       const otHourlyRate = baseHourlyRate.mul(rule.baseMultiplier).mul(rule.otMultiplier);
+       const otPay = payableOtHours.mul(otHourlyRate);
+       totalOtEarnings = totalOtEarnings.plus(otPay);
+    }
+
+    // Night Diff Pay: night_hours * hourlyRate * ActiveRate * NightMultiplier
+    if (nightHours.greaterThan(0)) {
+       // Assume night diff is on regular hours for simplicity, 
+       // but in reality you'd split night regular vs night OT.
+       // Active Rate = BaseMultiplier 
+       const nightRate = baseHourlyRate.mul(rule.baseMultiplier).mul(rule.nightDifferentialMultiplier.minus(1)); // The premium is 10%, so 1.10 - 1 = 0.10
+       const nightPay = nightHours.mul(nightRate);
+       totalNightEarnings = totalNightEarnings.plus(nightPay);
+    }
+
+    // Undertime Deduction: payable_ut * hourlyRate
+    if (payableUtHours.greaterThan(0)) {
+       const utDeduction = payableUtHours.mul(baseHourlyRate);
+       totalUtDeductions = totalUtDeductions.plus(utDeduction);
     }
   }
 
-  // If there are no attendance records but they are monthly paid, we might need a fallback,
-  // but in a strict attendance-based system, attendance must be generated.
-  // For now, if we have attendance, we use it.
-
-  if (totalBasic.greaterThan(0)) {
+  // Push aggregated results
+  if (totalRegularEarnings.greaterThan(0)) {
     earnings.push({
       type: "Basic Pay",
-      description: "Basic Salary",
-      amount: totalBasic,
+      description: "Basic Salary (Calculated)",
+      amount: totalRegularEarnings,
       is_taxable: true,
-      source: "attendance"
+      is_sss_covered: true,
+      is_philhealth_covered: true,
+      is_pagibig_covered: true,
+      source: "timesheet",
+      source_id: context.timesheet.id
     });
   }
 
-  return earnings;
-}
-
-export function calculateOvertime(context: PayrollContext): EarningResult[] {
-  const earnings: EarningResult[] = [];
-  let totalOt = new Decimal(0);
-
-  for (const record of context.attendance) {
-    if (record.overtime_hours.greaterThan(0)) {
-      const comp = getActiveCompensation(context.employee.history, record.record_date);
-      if (!comp) continue;
-
-      const hourlyRate = comp.daily_rate.div(8);
-      // Standard OT premium in PH is 1.25x for regular days
-      const otRate = hourlyRate.mul(1.25);
-      const otEarned = otRate.mul(record.overtime_hours);
-
-      totalOt = totalOt.plus(otEarned);
-    }
-  }
-
-  if (totalOt.greaterThan(0)) {
+  if (totalOtEarnings.greaterThan(0)) {
     earnings.push({
       type: "Overtime",
       description: "Overtime Pay",
-      amount: totalOt,
+      amount: totalOtEarnings,
       is_taxable: true,
-      source: "attendance"
+      is_sss_covered: true,
+      is_philhealth_covered: false,
+      is_pagibig_covered: true,
+      source: "timesheet",
+      source_id: context.timesheet.id
     });
   }
 
-  return earnings;
-}
-
-export function calculatePaidLeave(context: PayrollContext): EarningResult[] {
-  const earnings: EarningResult[] = [];
-  let totalLeavePay = new Decimal(0);
-
-  for (const leave of context.leaves) {
-    if (leave.is_paid && leave.status === 'Approved') {
-      // Find compensation active at the START of the leave
-      const comp = getActiveCompensation(context.employee.history, leave.start_date);
-      if (!comp) continue;
-
-      const leavePay = comp.daily_rate.mul(leave.total_days);
-      totalLeavePay = totalLeavePay.plus(leavePay);
-    }
-  }
-
-  if (totalLeavePay.greaterThan(0)) {
+  if (totalNightEarnings.greaterThan(0)) {
     earnings.push({
-      type: "Paid Leave",
-      description: "Approved Paid Leave",
-      amount: totalLeavePay,
+      type: "Other",
+      description: "Night Differential",
+      amount: totalNightEarnings,
       is_taxable: true,
-      source: "leave"
+      is_sss_covered: true,
+      is_philhealth_covered: false,
+      is_pagibig_covered: true,
+      source: "timesheet",
+      source_id: context.timesheet.id
     });
   }
 
-  return earnings;
+  if (totalUtDeductions.greaterThan(0)) {
+    deductions.push({
+      type: "Other",
+      description: "Undertime/Late Deductions",
+      amount: totalUtDeductions,
+      is_pre_tax: true,
+      is_sss_deductible: true,
+      is_philhealth_deductible: true,
+      is_pagibig_deductible: true,
+      source: "timesheet",
+      source_id: context.timesheet.id
+    });
+  }
+
+  return { earnings, deductions };
 }
+
 
 export function calculateAdjustments(context: PayrollContext): EarningResult[] {
   const earnings: EarningResult[] = [];
@@ -140,10 +163,13 @@ export function calculateAdjustments(context: PayrollContext): EarningResult[] {
   for (const adj of context.adjustments) {
     if (adj.type === "Earning") {
       earnings.push({
-        type: "Other", // Can be mapped to Allowance, Bonus, etc based on description
+        type: "Other", 
         description: adj.description,
         amount: adj.amount,
         is_taxable: adj.is_taxable ?? true,
+        is_sss_covered: adj.is_taxable ?? true, 
+        is_philhealth_covered: false, 
+        is_pagibig_covered: adj.is_taxable ?? true,
         source: "adjustment",
         source_id: adj.id
       });

@@ -19,16 +19,28 @@ export default function SettingsLayout({
         <aside className="-mx-4 lg:w-1/5">
           <nav className="flex space-x-2 lg:flex-col lg:space-x-0 lg:space-y-1">
             <Link
-              href="/settings"
+              href="/settings/account"
               className="inline-flex h-9 items-center justify-start rounded-md px-4 py-2 text-sm font-medium hover:bg-muted hover:text-accent-foreground"
             >
-              Company
+              Account
+            </Link>
+            <Link
+              href="/settings/company"
+              className="inline-flex h-9 items-center justify-start rounded-md px-4 py-2 text-sm font-medium hover:bg-muted hover:text-accent-foreground"
+            >
+              Company Settings
             </Link>
             <Link
               href="/settings/tax"
               className="inline-flex h-9 items-center justify-start rounded-md px-4 py-2 text-sm font-medium hover:bg-muted hover:text-accent-foreground"
             >
               Tax Tables
+            </Link>
+            <Link
+              href="/settings/work-policies"
+              className="inline-flex h-9 items-center justify-start rounded-md px-4 py-2 text-sm font-medium hover:bg-muted hover:text-accent-foreground"
+            >
+              Work Policies
             </Link>
             <Link
               href="/settings/contributions"

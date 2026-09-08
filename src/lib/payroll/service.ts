@@ -12,8 +12,26 @@ export async function loadPayrollContext(
 ): Promise<PayrollContext> {
   const supabase = await createClient();
 
+  // 1. Fetch or resolve the Payroll Period ID
+  const { data: dbPeriod } = await supabase
+    .from('payroll_periods')
+    .select('id, period_start, period_end, pay_frequency')
+    .eq('period_start', periodStart)
+    .eq('period_end', periodEnd)
+    .eq('pay_frequency', payFrequency)
+    .single();
+
+  let payrollPeriodId = "preview-period-id";
+  if (dbPeriod) {
+    payrollPeriodId = dbPeriod.id;
+  } else {
+    // If we are strictly previewing and no period exists, we still need to look up timesheets. 
+    // Timesheets are bound to a period ID. So if the period doesn't exist, we can't have timesheets!
+    throw new Error(`Payroll period not found. Timesheets must be generated and approved for this period first.`);
+  }
+
   const periodData = {
-    id: "preview-period-id",
+    id: payrollPeriodId,
     period_start: periodStart,
     period_end: periodEnd,
     pay_frequency: payFrequency,
@@ -69,91 +87,184 @@ export async function loadPayrollContext(
     .order('effective_from', { ascending: false })
     .limit(1);
 
-  if (!taxTables || taxTables.length === 0) throw new Error("No active tax table found.");
-  
-  const taxConfig = {
-    id: taxTables[0].id,
-    name: taxTables[0].name,
-    brackets: taxTables[0].tax_brackets.map((b: any) => ({
-      ...b,
-      minimum_income: new Decimal(b.minimum_income),
-      maximum_income: b.maximum_income ? new Decimal(b.maximum_income) : null,
-      base_tax: new Decimal(b.base_tax),
-      excess_rate: new Decimal(b.excess_rate)
-    }))
-  };
-
-  // Fetch Gov Configs
-  const { data: govTables } = await supabase
-    .from('government_contribution_tables')
-    .select('*, government_contribution_brackets(*)')
-    .eq('is_active', true)
-    .lte('effective_from', periodData.period_end)
-    .order('effective_from', { ascending: false });
-
-  const sssTable = govTables?.find(t => t.contribution_type === 'SSS');
-  const phTable = govTables?.find(t => t.contribution_type === 'PhilHealth');
-  const pagibigTable = govTables?.find(t => t.contribution_type === 'Pag-IBIG');
-
-  if (!sssTable || !phTable || !pagibigTable) {
-    throw new Error("Missing active statutory configurations.");
+  let taxConfig = null;
+  if (taxTables && taxTables.length > 0) {
+    taxConfig = {
+      id: taxTables[0].id,
+      name: taxTables[0].name,
+      brackets: taxTables[0].tax_brackets.map((b: any) => ({
+        ...b,
+        minimum_income: new Decimal(b.minimum_income),
+        maximum_income: b.maximum_income ? new Decimal(b.maximum_income) : null,
+        base_tax: new Decimal(b.base_tax),
+        excess_rate: new Decimal(b.excess_rate)
+      }))
+    };
   }
 
-  const sssConfig = {
-    id: sssTable.id,
-    brackets: sssTable.government_contribution_brackets.map((b: any) => ({
-      id: b.id,
-      minimum_compensation: new Decimal(b.salary_min),
-      maximum_compensation: b.salary_max ? new Decimal(b.salary_max) : null,
-      monthly_salary_credit: new Decimal(b.salary_min), // Using salary_min as MSC for now
-      regular_ss_employee: new Decimal(b.employee_amount),
-      regular_ss_employer: new Decimal(b.employer_amount),
-      mpf_employee: new Decimal(0),
-      mpf_employer: new Decimal(0),
-      ec_employer: new Decimal(0)
-    }))
-  };
+  // Fetch SSS Config (from government_contribution_tables)
+  const { data: sssTables } = await supabase
+    .from('government_contribution_tables')
+    .select('*, government_contribution_brackets(*)')
+    .eq('contribution_type', 'SSS')
+    .eq('is_active', true)
+    .lte('effective_from', periodData.period_end)
+    .order('effective_from', { ascending: false })
+    .limit(1);
 
-  // Philhealth is mapped by extracting rates from the brackets
-  const phBrackets = phTable.government_contribution_brackets;
-  const phRateBracket = phBrackets.find((b: any) => b.employee_rate > 0);
-  const philhealthConfig = {
-    id: phTable.id,
-    premium_rate: new Decimal(phRateBracket ? phRateBracket.employee_rate * 2 : 0.05), // Total premium rate
-    floor_mbs: new Decimal(10000), // Hardcoded fallbacks if not found correctly
-    ceiling_mbs: new Decimal(100000)
-  };
+  let sssConfig = null;
+  if (sssTables && sssTables.length > 0) {
+    const sssTable = sssTables[0];
+    sssConfig = {
+      id: sssTable.id,
+      brackets: sssTable.government_contribution_brackets.map((b: any) => ({
+        id: b.id,
+        minimum_compensation: new Decimal(b.salary_min),
+        maximum_compensation: b.salary_max ? new Decimal(b.salary_max) : null,
+        monthly_salary_credit: new Decimal(b.monthly_salary_credit ?? b.salary_min),
+        regular_ss_employee: new Decimal(b.regular_ss_employee ?? b.employee_amount ?? 0),
+        regular_ss_employer: new Decimal(b.regular_ss_employer ?? b.employer_amount ?? 0),
+        mpf_employee: new Decimal(b.mpf_employee ?? 0),
+        mpf_employer: new Decimal(b.mpf_employer ?? 0),
+        ec_employer: new Decimal(b.ec_employer ?? 0),
+      })).sort((a: any, b: any) => a.minimum_compensation.comparedTo(b.minimum_compensation))
+    };
+  }
 
-  const pagibigConfig = {
-    id: pagibigTable.id,
-    employee_rate_below_1500: new Decimal(0.01),
-    employee_rate_above_1500: new Decimal(0.02),
-    employer_rate: new Decimal(0.02),
-    max_compensation: new Decimal(10000)
-  };
-
-  // Fetch Attendance
-  const { data: attendanceData } = await supabase
-    .from('attendance_records')
+  // Fetch PhilHealth Config (from dedicated philhealth_configs table)
+  const { data: phConfigs } = await supabase
+    .from('philhealth_configs')
     .select('*')
-    .eq('employee_id', employeeId)
-    .gte('work_date', periodData.period_start)
-    .lte('work_date', periodData.period_end);
+    .eq('is_active', true)
+    .lte('effective_from', periodData.period_end)
+    .order('effective_from', { ascending: false })
+    .limit(1);
 
-  const mappedAttendance = attendanceData ? attendanceData.map((a: any) => ({
-    id: a.id,
-    record_date: a.work_date,
-    status: a.status,
-    regular_hours_worked: new Decimal(a.regular_hours || 0),
-    overtime_hours: new Decimal(a.overtime_hours || 0),
-    night_differential_hours: new Decimal(a.night_differential_hours || 0),
-    is_rest_day: a.is_rest_day || false
-  })) : [];
+  let philhealthConfig = null;
+  if (phConfigs && phConfigs.length > 0) {
+    const ph = phConfigs[0];
+    philhealthConfig = {
+      id: ph.id,
+      premium_rate: new Decimal(ph.premium_rate),
+      floor_mbs: new Decimal(ph.floor_mbs),
+      ceiling_mbs: new Decimal(ph.ceiling_mbs),
+    };
+  }
+
+  // Fetch Pag-IBIG Config (from dedicated pagibig_configs table)
+  const { data: pagibigConfigs } = await supabase
+    .from('pagibig_configs')
+    .select('*')
+    .eq('is_active', true)
+    .lte('effective_from', periodData.period_end)
+    .order('effective_from', { ascending: false })
+    .limit(1);
+
+  let pagibigConfig = null;
+  if (pagibigConfigs && pagibigConfigs.length > 0) {
+    const pag = pagibigConfigs[0];
+    pagibigConfig = {
+      id: pag.id,
+      employee_rate_low: new Decimal(pag.employee_rate_low),
+      employee_rate_high: new Decimal(pag.employee_rate_high),
+      salary_threshold: new Decimal(pag.salary_threshold),
+      employer_rate: new Decimal(pag.employer_rate),
+      max_compensation: new Decimal(pag.max_compensation),
+    };
+  }
+
+  // Fetch Approved Timesheet
+  const { data: timesheetData } = await supabase
+    .from('timesheets')
+    .select('*, timesheet_details(*)')
+    .eq('employee_id', employeeId)
+    .eq('payroll_period_id', payrollPeriodId)
+    .single();
+
+  if (!timesheetData) {
+    throw new Error(`No timesheet found for ${empData.first_name} ${empData.last_name} during this period.`);
+  }
+  if (timesheetData.status !== 'Approved') {
+    throw new Error(`Timesheet for ${empData.first_name} ${empData.last_name} is ${timesheetData.status}. Must be Approved.`);
+  }
+  if (timesheetData.is_stale) {
+    throw new Error(`Timesheet for ${empData.first_name} ${empData.last_name} is Stale. Attendance was modified after generation.`);
+  }
+  if (Number(timesheetData.missing_records_count) > 0) {
+    throw new Error(`Timesheet for ${empData.first_name} ${empData.last_name} has ${timesheetData.missing_records_count} unresolved missing records.`);
+  }
+
+  const timesheet = {
+    id: timesheetData.id,
+    employee_id: timesheetData.employee_id,
+    period_start: timesheetData.period_start,
+    period_end: timesheetData.period_end,
+    total_regular_hours: new Decimal(timesheetData.total_regular_hours || 0),
+    total_recorded_ot_hours: new Decimal(timesheetData.total_recorded_ot_hours || 0),
+    total_payable_ot_hours: new Decimal(timesheetData.total_payable_ot_hours || 0),
+    total_recorded_ut_hours: new Decimal(timesheetData.total_recorded_ut_hours || 0),
+    total_payable_ut_hours: new Decimal(timesheetData.total_payable_ut_hours || 0),
+    absent_days: new Decimal(timesheetData.absent_days || 0),
+    status: timesheetData.status,
+    details: timesheetData.timesheet_details?.map((d: any) => ({
+      id: d.id,
+      timesheet_id: d.timesheet_id,
+      date: d.date,
+      day_type: d.day_type,
+      scheduled_hours: new Decimal(d.scheduled_hours || 0),
+      regular_hours: new Decimal(d.regular_hours || 0),
+      recorded_ot_hours: new Decimal(d.recorded_ot_hours || 0),
+      approved_ot_hours: new Decimal(d.approved_ot_hours || 0),
+      payable_ot_hours: new Decimal(d.payable_ot_hours || 0),
+      recorded_ut_hours: new Decimal(d.recorded_ut_hours || 0),
+      excused_ut_hours: new Decimal(d.excused_ut_hours || 0),
+      payable_ut_hours: new Decimal(d.payable_ut_hours || 0),
+    })) || []
+  };
+
+  // Fetch Statutory Applicability
+  const { data: applicabilityData } = await supabase
+    .from('employee_statutory_profiles')
+    .select('sss_applicable, philhealth_applicable, pagibig_applicable')
+    .eq('employee_id', employeeId)
+    .lte('effective_from', periodData.period_end)
+    .or(`effective_to.is.null,effective_to.gte.${periodData.period_start}`)
+    .order('effective_from', { ascending: false })
+    .limit(1)
+    .single();
+
+  const statutoryApplicability = {
+    sss: applicabilityData?.sss_applicable ?? true,
+    philhealth: applicabilityData?.philhealth_applicable ?? true,
+    pagibig: applicabilityData?.pagibig_applicable ?? true
+  };
+
+  // Fetch Active Work Policy
+  const { data: positionsData } = await supabase.from('positions').select('default_work_policy_id').eq('title', employee.positions?.title || '').single() || { data: null };
+  const { data: specificPolicies } = await supabase.from('employee_work_policies').select('*, work_policies(*)').eq('employee_id', employeeId);
+  
+  let activePolicy = null;
+  if (specificPolicies && specificPolicies.length > 0) {
+    const specific = specificPolicies.find((ewp: any) => !ewp.effective_to || new Date(ewp.effective_to) >= new Date(periodData.period_start));
+    if (specific) activePolicy = specific.work_policies;
+  }
+  
+  if (!activePolicy && positionsData?.default_work_policy_id) {
+    const { data: wp } = await supabase.from('work_policies').select('*').eq('id', positionsData.default_work_policy_id).single();
+    if (wp) activePolicy = wp;
+  }
+  
+  if (!activePolicy) {
+    // Fallback to company default
+    const { data: cwps } = await supabase.from('work_policies').select('*').eq('is_company_default', true).limit(1);
+    if (cwps && cwps.length > 0) activePolicy = cwps[0];
+  }
 
   return {
     employee: empData,
     period: periodData,
-    attendance: mappedAttendance,
+    attendance: [], // Raw attendance is no longer used by the engine for basic calculations
+    timesheet: timesheet,
     leaves: [],
     holidays: [],
     adjustments: [], // No manual adjustments initially
@@ -161,7 +272,9 @@ export async function loadPayrollContext(
     taxConfig,
     sssConfig,
     philhealthConfig,
-    pagibigConfig
+    pagibigConfig,
+    activePolicy,
+    statutoryApplicability
   };
 }
 

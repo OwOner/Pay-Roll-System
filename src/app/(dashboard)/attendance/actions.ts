@@ -46,7 +46,7 @@ export async function fetchAttendanceMatrix(startDate: string, endDate: string) 
   const { data: employees } = await supabase
     .from('employees')
     .select('id, first_name, last_name, employee_code')
-    .eq('status', 'Active')
+    .eq('employment_status', 'Active')
     .order('last_name', { ascending: true })
 
   // Fetch attendance records in range

@@ -1,9 +1,16 @@
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { Card } from "@/components/ui/card"
-import { AlertCircle, CheckCircle, Clock, XCircle, FileText, ChevronRight } from "lucide-react"
+import { AlertCircle, CheckCircle, Clock, XCircle, FileText, ChevronRight, Eye } from "lucide-react"
 import Link from "next/link"
 import PayrollActions from "./actions-client"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 export default async function PayrollRunDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -47,7 +54,9 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
       gross_pay,
       net_pay,
       total_deductions,
-      employees ( first_name, last_name, employee_code )
+      employees ( first_name, last_name, employee_code ),
+      payroll_earnings ( description, amount ),
+      payroll_deductions ( description, amount )
     `)
     .eq('payroll_run_id', id)
 
@@ -112,13 +121,14 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
                     <th className="px-6 py-3 font-medium">Employee</th>
                     <th className="px-6 py-3 font-medium text-right">Gross Pay</th>
                     <th className="px-6 py-3 font-medium text-right">Deductions</th>
-                    <th className="px-6 py-3 font-medium text-right">Net Pay</th>
+                    <th className="px-6 py-3 font-medium text-right text-emerald-600">Net Pay</th>
+                    <th className="px-6 py-3 font-medium text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {(!items || items.length === 0) ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
+                      <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
                         <FileText className="w-8 h-8 mx-auto text-slate-300 mb-2" />
                         <p>No items found for this payroll run.</p>
                       </td>
@@ -140,6 +150,59 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
                         </td>
                         <td className="px-6 py-4 text-right font-bold text-emerald-600">
                           ₱{Number(item.net_pay).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <Dialog>
+                            <DialogTrigger className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                              <Eye className="w-3.5 h-3.5" />
+                              Details
+                            </DialogTrigger>
+                            <DialogContent className="max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>Calculation Breakdown - {(item.employees as any)?.first_name} {(item.employees as any)?.last_name}</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-6 py-4">
+                                <div>
+                                  <h4 className="text-sm font-semibold text-slate-900 mb-2 pb-2 border-b border-slate-100">Earnings</h4>
+                                  <div className="space-y-2">
+                                    {(item as any).payroll_earnings?.map((e: any, i: number) => (
+                                      <div key={i} className="flex justify-between text-sm">
+                                        <span className="text-slate-600">{e.description}</span>
+                                        <span className="font-medium text-slate-900">₱{Number(e.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                      </div>
+                                    ))}
+                                    {(!(item as any).payroll_earnings || (item as any).payroll_earnings.length === 0) && (
+                                      <p className="text-sm text-slate-500 italic">No earnings found.</p>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                <div>
+                                  <h4 className="text-sm font-semibold text-slate-900 mb-2 pb-2 border-b border-slate-100">Deductions</h4>
+                                  <div className="space-y-2">
+                                    {(item as any).payroll_deductions?.map((d: any, i: number) => (
+                                      <div key={i} className="flex justify-between text-sm">
+                                        <span className="text-slate-600">{d.description}</span>
+                                        {Number(d.amount) === 0 && d.description.includes('Not Applicable') ? (
+                                          <span className="font-medium text-slate-500">Not Applicable</span>
+                                        ) : (
+                                          <span className="font-medium text-red-600">-₱{Number(d.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {(!(item as any).payroll_deductions || (item as any).payroll_deductions.length === 0) && (
+                                      <p className="text-sm text-slate-500 italic">No deductions found.</p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
+                                  <span className="font-bold text-slate-900">Net Pay</span>
+                                  <span className="text-lg font-bold text-emerald-600">₱{Number(item.net_pay).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                         </td>
                       </tr>
                     ))

@@ -6,9 +6,7 @@ import {
   DeductionResult 
 } from "./types";
 import { 
-  calculateBasicPay, 
-  calculateOvertime, 
-  calculatePaidLeave, 
+  calculateAttendanceBasedPay, 
   calculateAdjustments 
 } from "./earnings";
 import { 
@@ -18,19 +16,11 @@ import {
 } from "./contributions";
 import { calculateWithholdingTax } from "./tax";
 import { validatePayrollResult } from "./validation";
+import { WorkPolicy } from "./rate-calculator";
 
-export const CALCULATION_ENGINE_VERSION = "1.0.0";
+export const CALCULATION_ENGINE_VERSION = "2.0.0"; // Upgraded to Multiplicative Engine
 
-/**
- * Calculates the complete payroll for a given context.
- * Must be deterministic and throw on missing configuration.
- */
-export function calculatePayroll(context: PayrollContext): PayrollCalculationResult {
-  // Guard clauses for required configs
-  if (!context.taxConfig) throw new Error("Missing Tax configuration.");
-  if (!context.sssConfig) throw new Error("Missing SSS configuration.");
-  if (!context.philhealthConfig) throw new Error("Missing PhilHealth configuration.");
-  if (!context.pagibigConfig) throw new Error("Missing Pag-IBIG configuration.");
+export function calculatePayroll(context: PayrollContext, activePolicy: WorkPolicy): PayrollCalculationResult {
   if (!context.employee.history || context.employee.history.length === 0) {
     throw new Error(`No compensation history found for employee ${context.employee.id}.`);
   }
@@ -38,16 +28,21 @@ export function calculatePayroll(context: PayrollContext): PayrollCalculationRes
   const earnings: EarningResult[] = [];
   let deductions: DeductionResult[] = [];
 
-  // 1. Calculate Earnings
-  earnings.push(...calculateBasicPay(context));
-  earnings.push(...calculatePaidLeave(context));
-  earnings.push(...calculateOvertime(context));
+  // 1. Calculate Earnings & Deductions via Multiplicative Attendance Engine
+  const attendanceResult = calculateAttendanceBasedPay(context, activePolicy);
+  earnings.push(...attendanceResult.earnings);
+  deductions.push(...attendanceResult.deductions);
+  
+  // (In a real system, we also calculate Paid Leave here if not fully embedded in attendanceResult)
+  
   earnings.push(...calculateAdjustments(context));
 
   let grossPay = new Decimal(0);
   let totalTaxableEarnings = new Decimal(0);
   let totalNonTaxableEarnings = new Decimal(0);
-  let monthlyBasicSalary = new Decimal(0);
+  let sssBasis = new Decimal(0);
+  let philhealthBasis = new Decimal(0);
+  let pagibigBasis = new Decimal(0);
 
   for (const earning of earnings) {
     grossPay = grossPay.plus(earning.amount);
@@ -58,19 +53,31 @@ export function calculatePayroll(context: PayrollContext): PayrollCalculationRes
       totalNonTaxableEarnings = totalNonTaxableEarnings.plus(earning.amount);
     }
 
-    // Identify Monthly Basic Salary for PhilHealth basis (typically just Basic Pay + Paid Leave if it replaces basic)
-    if (earning.type === "Basic Pay" || earning.type === "Paid Leave") {
-      monthlyBasicSalary = monthlyBasicSalary.plus(earning.amount);
-    }
+    if (earning.is_sss_covered) sssBasis = sssBasis.plus(earning.amount);
+    if (earning.is_philhealth_covered) philhealthBasis = philhealthBasis.plus(earning.amount);
+    if (earning.is_pagibig_covered) pagibigBasis = pagibigBasis.plus(earning.amount);
   }
 
-  // Ensure monthly basic salary doesn't include OT/Allowances per PhilHealth rules
-  // The above check strictly uses Basic Pay and Paid Leave types.
+  // Subtract pre-tax deductions (like Absences) from the bases before calculating statutory contributions
+  for (const ded of deductions) {
+    if (ded.is_pre_tax) {
+      totalTaxableEarnings = totalTaxableEarnings.sub(ded.amount);
+    }
+    if (ded.is_sss_deductible) sssBasis = sssBasis.sub(ded.amount);
+    if (ded.is_philhealth_deductible) philhealthBasis = philhealthBasis.sub(ded.amount);
+    if (ded.is_pagibig_deductible) pagibigBasis = pagibigBasis.sub(ded.amount);
+  }
+
+  // Ensure bases don't go below 0
+  if (sssBasis.lessThan(0)) sssBasis = new Decimal(0);
+  if (philhealthBasis.lessThan(0)) philhealthBasis = new Decimal(0);
+  if (pagibigBasis.lessThan(0)) pagibigBasis = new Decimal(0);
+  if (totalTaxableEarnings.lessThan(0)) totalTaxableEarnings = new Decimal(0);
 
   // 2. Calculate Statutory Contributions
-  deductions.push(...calculateSSS(grossPay, context)); // SSS basis is gross pay or specific compensation? Standard practice: Gross Compensation is used to find MSC.
-  deductions.push(...calculatePhilHealth(monthlyBasicSalary, context));
-  deductions.push(...calculatePagIBIG(grossPay, context));
+  deductions.push(...calculateSSS(sssBasis, context));
+  deductions.push(...calculatePhilHealth(philhealthBasis, context));
+  deductions.push(...calculatePagIBIG(pagibigBasis, context));
 
   // 3. Compute Taxable Compensation
   // Taxable Comp = Taxable Earnings - Mandatory Employee Contributions (SSS, PhilHealth, Pag-IBIG)
@@ -84,9 +91,8 @@ export function calculatePayroll(context: PayrollContext): PayrollCalculationRes
   let pagibigEmployer = new Decimal(0);
 
   for (const ded of deductions) {
-    mandatoryContributions = mandatoryContributions.plus(ded.amount);
-
     if (ded.type === "SSS") {
+      mandatoryContributions = mandatoryContributions.plus(ded.amount);
       sssEmployee = sssEmployee.plus(ded.amount);
       if (ded.employer_amount) {
         if (ded.description.includes("EC")) {
@@ -96,9 +102,11 @@ export function calculatePayroll(context: PayrollContext): PayrollCalculationRes
         }
       }
     } else if (ded.type === "PhilHealth") {
+      mandatoryContributions = mandatoryContributions.plus(ded.amount);
       philhealthEmployee = philhealthEmployee.plus(ded.amount);
       if (ded.employer_amount) philhealthEmployer = philhealthEmployer.plus(ded.employer_amount);
     } else if (ded.type === "Pag-IBIG") {
+      mandatoryContributions = mandatoryContributions.plus(ded.amount);
       pagibigEmployee = pagibigEmployee.plus(ded.amount);
       if (ded.employer_amount) pagibigEmployer = pagibigEmployer.plus(ded.employer_amount);
     }
@@ -157,6 +165,9 @@ export function calculatePayroll(context: PayrollContext): PayrollCalculationRes
   }
 
   let finalNetPay = finalGrossPay.sub(finalTotalEmployeeDeductions);
+  if (finalNetPay.lessThan(0)) {
+    finalNetPay = new Decimal(0);
+  }
 
   const result: PayrollCalculationResult = {
     employee_id: context.employee.id,
@@ -183,10 +194,10 @@ export function calculatePayroll(context: PayrollContext): PayrollCalculationRes
     
     calculation_engine_version: CALCULATION_ENGINE_VERSION,
     snapshots: {
-      taxTableId: context.taxConfig.id,
-      sssTableId: context.sssConfig.id,
-      philhealthTableId: context.philhealthConfig.id,
-      pagibigTableId: context.pagibigConfig.id,
+      taxTableId: context.taxConfig ? context.taxConfig.id : undefined,
+      sssTableId: context.sssConfig ? context.sssConfig.id : undefined,
+      philhealthTableId: context.philhealthConfig ? context.philhealthConfig.id : undefined,
+      pagibigTableId: context.pagibigConfig ? context.pagibigConfig.id : undefined,
     }
   };
 

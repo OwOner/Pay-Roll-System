@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 
 export async function approvePayrollRun(payrollRunId: string) {
   const supabase = await createClient()
@@ -144,5 +145,49 @@ export async function markPayrollPaid(payrollRunId: string) {
 
   revalidatePath(`/payroll/${payrollRunId}`)
   revalidatePath('/payroll')
+  return { success: true }
+}
+
+export async function submitDraftForApproval(payrollRunId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { error } = await supabase
+    .from('payroll_runs')
+    .update({ status: 'Pending Approval' })
+    .eq('id', payrollRunId)
+    .eq('status', 'Draft')
+
+  if (error) return { error: error.message }
+
+  await supabase.from('payroll_status_history').insert({
+    payroll_run_id: payrollRunId,
+    status: 'Pending Approval',
+    changed_by: user?.id,
+    reason: 'Draft submitted for approval'
+  })
+
+  revalidatePath(`/payroll/${payrollRunId}`)
+  revalidatePath('/payroll')
+  return { success: true }
+}
+
+export async function deleteDraft(payrollRunId: string) {
+  const supabase = await createClient()
+  console.log("Attempting to delete draft:", payrollRunId)
+
+  // Must only delete if it's a draft
+  const { data, error, count } = await supabase
+    .from('payroll_runs')
+    .delete({ count: 'exact' })
+    .eq('id', payrollRunId)
+    .eq('status', 'Draft')
+    .select()
+
+  console.log("Delete draft result:", { data, error, count })
+
+  if (error) return { error: error.message }
+  if (count === 0) return { error: "Deletion failed: Row not found, not in Draft status, or permission denied." }
+
   return { success: true }
 }

@@ -88,10 +88,56 @@ function getBaseContext(): PayrollContext {
     },
     pagibigConfig: {
       id: "pagibig-table-1",
-      employee_rate_below_1500: new Decimal(0.01),
-      employee_rate_above_1500: new Decimal(0.02),
+      employee_rate_low: new Decimal(0.01),
+      employee_rate_high: new Decimal(0.02),
+      salary_threshold: new Decimal(1500),
       employer_rate: new Decimal(0.02),
       max_compensation: new Decimal(5000) // Caps basis at 5000
+    },
+    activePolicy: {
+      id: "policy-1",
+      name: "Standard",
+      scheduled_hours_per_day: 8,
+      scheduled_days_per_week: 5,
+      rest_days: ["Saturday", "Sunday"],
+      rest_days_paid: false,
+      daily_rate_method: "annualized_261",
+      annualization_factor: 261,
+      custom_day_rules: {}
+    },
+    statutoryApplicability: {
+      sss: true,
+      philhealth: true,
+      pagibig: true
+    },
+    timesheet: {
+      id: "ts-1",
+      employee_id: "emp-1",
+      period_start: "2026-09-01",
+      period_end: "2026-09-15",
+      total_regular_hours: new Decimal(8),
+      total_recorded_ot_hours: new Decimal(0),
+      total_payable_ot_hours: new Decimal(0),
+      total_recorded_ut_hours: new Decimal(0),
+      total_payable_ut_hours: new Decimal(0),
+      absent_days: new Decimal(0),
+      status: "Approved",
+      details: [
+        {
+          id: "tsd-1",
+          timesheet_id: "ts-1",
+          date: "2026-09-01",
+          day_type: "Regular",
+          scheduled_hours: new Decimal(8),
+          regular_hours: new Decimal(8),
+          recorded_ot_hours: new Decimal(0),
+          approved_ot_hours: new Decimal(0),
+          payable_ot_hours: new Decimal(0),
+          recorded_ut_hours: new Decimal(0),
+          excused_ut_hours: new Decimal(0),
+          payable_ut_hours: new Decimal(0)
+        }
+      ]
     }
   };
 }
@@ -104,7 +150,7 @@ describe("Payroll Calculation Engine", () => {
     // PhilHealth on 1153.85 MBS -> hits floor of 10000 * 5% = 500 total, 250 employee, 250 employer
     // SSS -> 1350 employee
     // Pagibig -> 1153.85 * 1% = 11.54 employee
-    const result = calculatePayroll(ctx);
+    const result = calculatePayroll(ctx, ctx.activePolicy);
     
     expect(result.gross_pay.toString()).toBe("1153.85");
     expect(result.earnings.length).toBe(1);
@@ -115,7 +161,7 @@ describe("Payroll Calculation Engine", () => {
     const ctx = getBaseContext();
     ctx.attendance[0].overtime_hours = new Decimal(2); // 2 hours OT
     
-    const result = calculatePayroll(ctx);
+    const result = calculatePayroll(ctx, ctx.activePolicy);
     
     // 1 day basic = 1153.85
     // 2 hours OT = (1153.85 / 8) * 1.25 * 2 = 144.23125 * 2 = 360.58
@@ -143,7 +189,7 @@ describe("Payroll Calculation Engine", () => {
       }
     ];
 
-    const result = calculatePayroll(ctx);
+    const result = calculatePayroll(ctx, ctx.activePolicy);
     
     expect(result.gross_pay.toString()).toBe("1153.85");
     const leaveEarning = result.earnings.find(e => e.type === "Paid Leave");
@@ -155,7 +201,7 @@ describe("Payroll Calculation Engine", () => {
     ctx.attendance[0].regular_hours_worked = new Decimal(160); // Say, 20 days -> 23077 basic
     ctx.attendance[0].overtime_hours = new Decimal(10); // Some OT
 
-    const result = calculatePayroll(ctx);
+    const result = calculatePayroll(ctx, ctx.activePolicy);
     
     // Philhealth should only look at Basic (23077)
     // 23077 * 0.05 = 1153.85 total -> 576.93 employee, 576.93 employer
@@ -177,7 +223,7 @@ describe("Payroll Calculation Engine", () => {
       }
     ];
 
-    const result = calculatePayroll(ctx);
+    const result = calculatePayroll(ctx, ctx.activePolicy);
     
     // Gross includes De Minimis
     expect(result.non_taxable_compensation.toString()).toBe("1500");
@@ -198,7 +244,7 @@ describe("Payroll Calculation Engine", () => {
 
   test("Test 9, 11 — Employer vs Employee contributions", () => {
     const ctx = getBaseContext();
-    const result = calculatePayroll(ctx);
+    const result = calculatePayroll(ctx, ctx.activePolicy);
     
     expect(result.sss_ec.toString()).toBe("30"); // EC is 30
     
@@ -249,7 +295,7 @@ describe("Payroll Calculation Engine", () => {
       }
     ];
 
-    const result = calculatePayroll(ctx);
+    const result = calculatePayroll(ctx, ctx.activePolicy);
     
     // Gross = 1153.85 (att-1) + 1538.46 (att-2)
     const expected = new Decimal(1153.85).plus(1538.46);
@@ -258,12 +304,12 @@ describe("Payroll Calculation Engine", () => {
 
   test("Test 13 — Configuration snapshot boundary", () => {
     const ctx = getBaseContext();
-    const result1 = calculatePayroll(ctx);
+    const result1 = calculatePayroll(ctx, ctx.activePolicy);
     expect(result1.snapshots.taxTableId).toBe("tax-table-1");
     
     // Mutate config
     ctx.taxConfig.id = "tax-table-2";
-    const result2 = calculatePayroll(ctx);
+    const result2 = calculatePayroll(ctx, ctx.activePolicy);
     
     expect(result1.snapshots.taxTableId).toBe("tax-table-1"); // Remains unchanged
     expect(result2.snapshots.taxTableId).toBe("tax-table-2");

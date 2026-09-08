@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
 import { updateEmployee } from "./actions"
+import { StatutoryProfileManager } from "./statutory-profile-manager"
 
 export default async function EditEmployeePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -17,6 +18,13 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
     .from('employees')
     .select('*')
     .eq('id', id)
+    .single()
+
+  const { data: currentProfile } = await supabase
+    .from('employee_statutory_profiles')
+    .select('*')
+    .eq('employee_id', id)
+    .is('effective_to', null)
     .single()
 
   if (error || !employee) {
@@ -46,7 +54,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
 
       <Card>
         <CardContent className="pt-6">
-          <form action={updateEmployeeWithId} className="space-y-8">
+          <form id="edit-employee-form" action={updateEmployeeWithId} className="space-y-8">
             {/* Personal Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Personal Information</h3>
@@ -145,14 +153,21 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
                 </div>
               </div>
             </div>
-
-            <div className="flex justify-end gap-4 pt-4">
-              <Link href={`/employees/${id}`}>
-                <Button variant="outline" type="button">Cancel</Button>
-              </Link>
-              <Button type="submit">Update Employee</Button>
-            </div>
           </form>
+          
+          <Separator className="my-8" />
+          
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Statutory Applicability</h3>
+            <StatutoryProfileManager employeeId={id} currentProfile={currentProfile} />
+          </div>
+
+          <div className="flex justify-end gap-4 pt-8">
+            <Link href={`/employees/${id}`}>
+              <Button variant="outline" type="button">Cancel</Button>
+            </Link>
+            <Button form="edit-employee-form" type="submit">Update Employee</Button>
+          </div>
         </CardContent>
       </Card>
     </div>

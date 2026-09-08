@@ -111,3 +111,24 @@ export async function createNewTaxTable(formData?: FormData) {
     
   revalidatePath('/settings/tax')
 }
+
+export async function saveTaxBrackets(taxTableId: string, brackets: any[]) {
+  const { error: delError } = await adminSupabase
+    .from('tax_brackets')
+    .delete()
+    .eq('tax_table_id', taxTableId)
+
+  if (delError) throw new Error(delError.message)
+
+  if (brackets.length > 0) {
+    const { error: insError } = await adminSupabase
+      .from('tax_brackets')
+      .insert(brackets)
+    
+    if (insError) throw new Error(insError.message)
+  }
+
+  revalidatePath('/settings/tax')
+  return { success: true }
+}
+

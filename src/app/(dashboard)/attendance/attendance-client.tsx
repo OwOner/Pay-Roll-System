@@ -5,13 +5,15 @@ import { format, eachDayOfInterval, parseISO, isSameDay, subDays } from "date-fn
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Download, LayoutGrid, List, Search, Upload, AlertCircle, CheckCircle2 } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Download, LayoutGrid, List, Search, Upload, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react"
 import Link from "next/link"
 import { fetchAttendanceMatrix } from "./actions"
 import AttendanceDetailDrawer from "./attendance-detail-drawer"
+import { generateExcelReport } from "./export-report"
 
 type ViewMode = 'grid' | 'list'
 
@@ -84,6 +86,89 @@ export default function AttendanceClient({ initialStartDate, initialEndDate }: A
     }
   }
 
+  const handleExportRaw = () => {
+    const headers = [
+      "Date",
+      "Employee Code",
+      "First Name",
+      "Last Name",
+      "Status",
+      "Time In",
+      "Time Out",
+      "Regular Hours",
+      "Overtime Hours",
+      "Night Diff Hours",
+      "Is Rest Day",
+      "Project",
+      "Source",
+      "Remarks"
+    ];
+
+    const csvRows = [headers.join(',')];
+
+    // Export all records for the period, ignoring search filters
+    const sortedRecords = [...records].sort((a, b) => {
+       if (a.work_date !== b.work_date) {
+           return a.work_date.localeCompare(b.work_date);
+       }
+       const empA = employees.find(e => e.id === a.employee_id);
+       const empB = employees.find(e => e.id === b.employee_id);
+       return (empA?.last_name || '').localeCompare(empB?.last_name || '');
+    });
+
+    sortedRecords.forEach(r => {
+      const emp = employees.find(e => e.id === r.employee_id);
+      if (!emp) return;
+
+      const row = [
+        r.work_date,
+        `"${emp.employee_code || ''}"`,
+        `"${emp.first_name || ''}"`,
+        `"${emp.last_name || ''}"`,
+        r.status || '',
+        r.time_in ? new Date(r.time_in).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '',
+        r.time_out ? new Date(r.time_out).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '',
+        r.regular_hours || 0,
+        r.overtime_hours || 0,
+        r.night_differential_hours || 0,
+        r.is_rest_day ? 'Yes' : 'No',
+        `"${r.projects?.project_name || ''}"`,
+        r.last_modified_source || r.source || '',
+        `"${r.remarks || ''}"`
+      ];
+
+      csvRows.push(row.join(','));
+    });
+
+    const csvString = csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `raw_attendance_${startDate}_to_${endDate}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportReport = async () => {
+    try {
+      const blob = await generateExcelReport(startDate, endDate, employees, records);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Attendance_Report_${startDate}_to_${endDate}.xlsx`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error generating Excel report:", error);
+      alert("Failed to generate the Excel report. Please try again.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -100,10 +185,20 @@ export default function AttendanceClient({ initialStartDate, initialEndDate }: A
               Import Attendance
             </Button>
           </Link>
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger className={buttonVariants({ variant: "outline" })}>
+              <Download className="mr-2 h-4 w-4" />
+              Export <ChevronDown className="ml-2 h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportReport} className="cursor-pointer">
+                <span className="mr-2">📊</span> Export Attendance Report (.xlsx)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportRaw} className="cursor-pointer">
+                <span className="mr-2">🗃️</span> Export Raw Attendance Data (.csv)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -222,7 +317,9 @@ export default function AttendanceClient({ initialStartDate, initialEndDate }: A
                       <TableCell>{r.time_out ? new Date(r.time_out).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}</TableCell>
                       <TableCell>{r.projects?.project_name || '-'}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="text-[10px]">{r.last_modified_source || r.source}</Badge>
+                        <Badge variant="secondary" className="text-[10px] bg-slate-100 text-slate-700">
+                          {(r.last_modified_source || r.source || '').split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                          <Button variant="ghost" size="sm" onClick={() => handleCellClick(emp, parseISO(r.work_date))}>Edit</Button>

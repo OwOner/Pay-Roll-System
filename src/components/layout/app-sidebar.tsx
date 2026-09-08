@@ -42,12 +42,6 @@ const items = [
     icon: Calculator,
   },
   {
-    id: "history",
-    title: "Payroll History",
-    url: "/history",
-    icon: History,
-  },
-  {
     id: "reports",
     title: "Reports",
     url: "/reports",

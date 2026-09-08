@@ -62,6 +62,11 @@ export default async function TaxSettingsPage() {
                   {table.is_active ? 'Disable' : 'Enable'}
                 </Button>
               </form>
+              <a href={`/settings/tax/${table.id}/edit`}>
+                <Button variant="outline" size="sm">
+                  Edit Brackets
+                </Button>
+              </a>
             </div>
           </CardHeader>
           <CardContent>

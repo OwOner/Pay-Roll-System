@@ -78,6 +78,22 @@ export async function createEmployee(formData: FormData) {
 
   const employeeId = employeeData.id
 
+  // 2b. Insert Initial Statutory Profile
+  const { error: profileStatError } = await supabase
+    .from('employee_statutory_profiles')
+    .insert({
+      employee_id: employeeId,
+      sss_applicable: formData.get("sss_applicable") === "true",
+      philhealth_applicable: formData.get("philhealth_applicable") === "true",
+      pagibig_applicable: formData.get("pagibig_applicable") === "true",
+      effective_from: newEmployee.date_hired,
+      reason: 'Initial setup on hire'
+    })
+
+  if (profileStatError) {
+    console.error("Failed to set statutory profile:", profileStatError)
+  }
+
   // 3. Provision System Account if requested
   const createAccount = formData.get("create_account") === "true"
   

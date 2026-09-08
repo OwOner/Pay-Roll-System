@@ -55,7 +55,7 @@
   --card-foreground: hsl(222.2 47.4% 11.2%);
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(222.2 47.4% 11.2%);
-  --primary: hsl(24.6 95% 53.1%); /* #ea580c orange-600 */
+  --primary: hsl(222.2 47.4% 11.2%); /* slate-900 */
   --primary-foreground: hsl(0 0% 100%);
   --secondary: hsl(210 40% 96.1%);
   --secondary-foreground: hsl(222.2 47.4% 11.2%);
@@ -67,16 +67,16 @@
   --destructive-foreground: hsl(210 40% 98%);
   --border: hsl(214.3 31.8% 91.4%); /* slate-200 */
   --input: hsl(214.3 31.8% 91.4%);
-  --ring: hsl(24.6 95% 53.1%);
+  --ring: hsl(222.2 47.4% 11.2%); /* slate-900 */
   --radius: 0.75rem; /* rounded-xl base */
   --sidebar: hsl(0 0% 100%);
   --sidebar-foreground: hsl(222.2 47.4% 11.2%);
-  --sidebar-primary: hsl(24.6 95% 53.1%);
+  --sidebar-primary: hsl(222.2 47.4% 11.2%); /* slate-900 */
   --sidebar-primary-foreground: hsl(0 0% 100%);
   --sidebar-accent: hsl(210 40% 96.1%);
   --sidebar-accent-foreground: hsl(222.2 47.4% 11.2%);
   --sidebar-border: hsl(214.3 31.8% 91.4%);
-  --sidebar-ring: hsl(24.6 95% 53.1%);
+  --sidebar-ring: hsl(222.2 47.4% 11.2%); /* slate-900 */
 }
 
 .dark {

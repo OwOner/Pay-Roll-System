@@ -99,3 +99,48 @@ export async function addCompensationHistory(formData: FormData) {
   revalidatePath(`/employees/${employee_id}`)
   return { success: true }
 }
+
+export async function fetchEmployeeAttendance(employeeId: string, startDate: string, endDate: string) {
+  const supabase = await createClient()
+  
+  const { data: records, error } = await supabase
+    .from('attendance_records')
+    .select('*, projects(project_name)')
+    .eq('employee_id', employeeId)
+    .gte('work_date', startDate)
+    .lte('work_date', endDate)
+    .order('work_date', { ascending: false })
+    
+  if (error) {
+    console.error("Error fetching employee attendance:", error)
+    return []
+  }
+  
+  return records || []
+}
+
+export async function assignEmployeeWorkPolicy(payload: {
+  employee_id: string,
+  work_policy_id: string,
+  effective_from: string,
+  effective_to?: string
+}) {
+  const supabase = await createClient()
+  
+  const { error } = await supabase
+    .from("employee_work_policies")
+    .insert([{
+      employee_id: payload.employee_id,
+      work_policy_id: payload.work_policy_id,
+      effective_from: payload.effective_from,
+      effective_to: payload.effective_to || null
+    }])
+
+  if (error) {
+    console.error("Error assigning work policy:", error)
+    return { error: error.message }
+  }
+
+  revalidatePath(`/employees/${payload.employee_id}`)
+  return { success: true }
+}

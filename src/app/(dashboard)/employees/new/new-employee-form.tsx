@@ -142,6 +142,22 @@ export function NewEmployeeForm() {
             <Input id="tin_number" name="tin_number" placeholder="000-000-000-000" />
           </div>
         </div>
+
+        <h4 className="text-sm font-medium mt-6 mb-3">Statutory Applicability</h4>
+        <div className="flex flex-col space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-md">
+          <div className="flex items-center space-x-2">
+            <Checkbox id="sss_applicable" name="sss_applicable" value="true" defaultChecked />
+            <Label htmlFor="sss_applicable" className="font-normal text-sm">Subject to SSS Deduction</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="philhealth_applicable" name="philhealth_applicable" value="true" defaultChecked />
+            <Label htmlFor="philhealth_applicable" className="font-normal text-sm">Subject to PhilHealth Deduction</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="pagibig_applicable" name="pagibig_applicable" value="true" defaultChecked />
+            <Label htmlFor="pagibig_applicable" className="font-normal text-sm">Subject to Pag-IBIG Deduction</Label>
+          </div>
+        </div>
       </div>
 
       <Separator />

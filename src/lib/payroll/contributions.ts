@@ -12,6 +12,25 @@ export function calculateSSS(
   const sssConfig = context.sssConfig;
   const deductions: DeductionResult[] = [];
 
+  if (!context.statutoryApplicability.sss) {
+    deductions.push({
+      type: 'SSS',
+      description: 'SSS (Not Applicable)',
+      amount: new Decimal(0),
+      employer_amount: new Decimal(0)
+    });
+    return deductions;
+  }
+
+  if (!sssConfig) {
+    throw new Error(`Missing active SSS configuration for the payroll period.`);
+  }
+
+  // If there's absolutely no basis due to absences/no pay, don't deduct SSS
+  if (monthlySalary.lessThanOrEqualTo(0)) {
+    return deductions;
+  }
+
   // Find the applicable bracket for the monthly salary
   let applicableBracket = sssConfig.brackets[0];
   
@@ -79,6 +98,25 @@ export function calculatePhilHealth(
   const config = context.philhealthConfig;
   const deductions: DeductionResult[] = [];
 
+  if (!context.statutoryApplicability.philhealth) {
+    deductions.push({
+      type: 'PhilHealth',
+      description: 'PhilHealth (Not Applicable)',
+      amount: new Decimal(0),
+      employer_amount: new Decimal(0)
+    });
+    return deductions;
+  }
+
+  if (!config) {
+    throw new Error(`Missing active PhilHealth configuration for the payroll period.`);
+  }
+
+  // If there's absolutely no basis due to absences/no pay, don't deduct PhilHealth
+  if (monthlyBasicSalary.lessThanOrEqualTo(0)) {
+    return deductions;
+  }
+
   // Apply floor and ceiling
   let basis = monthlyBasicSalary;
   if (basis.lessThan(config.floor_mbs)) {
@@ -118,16 +156,35 @@ export function calculatePagIBIG(
   const config = context.pagibigConfig;
   const deductions: DeductionResult[] = [];
 
+  if (!context.statutoryApplicability.pagibig) {
+    deductions.push({
+      type: 'Pag-IBIG',
+      description: 'Pag-IBIG (Not Applicable)',
+      amount: new Decimal(0),
+      employer_amount: new Decimal(0)
+    });
+    return deductions;
+  }
+
+  if (!config) {
+    throw new Error(`Missing active Pag-IBIG configuration for the payroll period.`);
+  }
+
+  // If there's absolutely no basis due to absences/no pay, don't deduct Pag-IBIG
+  if (monthlySalary.lessThanOrEqualTo(0)) {
+    return deductions;
+  }
+
   // Apply maximum compensation limit (usually PHP 5,000 for Pag-IBIG as of recent rules, though changing in 2024 to 10k)
   let basis = monthlySalary;
   if (basis.greaterThan(config.max_compensation)) {
     basis = config.max_compensation;
   }
 
-  // Determine employee rate
-  let employeeRate = config.employee_rate_above_1500;
-  if (monthlySalary.lessThanOrEqualTo(1500)) {
-    employeeRate = config.employee_rate_below_1500;
+  // Determine employee rate based on configurable salary threshold
+  let employeeRate = config.employee_rate_high;
+  if (monthlySalary.lessThanOrEqualTo(config.salary_threshold)) {
+    employeeRate = config.employee_rate_low;
   }
 
   const employeeShare = basis.mul(employeeRate).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { loadPayrollContext } from "@/lib/payroll/service"
 import { calculatePayroll } from "@/lib/payroll/engine"
+import { getOrCreatePayrollPeriod } from "@/app/(dashboard)/attendance/timesheet-actions"
 
 export async function previewPayrollRun(formData: FormData) {
   const supabase = await createClient()
@@ -22,16 +23,23 @@ export async function previewPayrollRun(formData: FormData) {
     return { error: "Pay date must be on or after the period end date." }
   }
 
-  // Check for duplicates
-  const { data: existing } = await supabase
-    .from('payroll_periods')
-    .select('id')
-    .eq('period_start', start)
-    .eq('period_end', end)
-    .eq('pay_frequency', freq)
-    .single()
+  // Get or Create the authoritative period ID
+  let periodId: string;
+  try {
+    const period = await getOrCreatePayrollPeriod(start, end, freq);
+    periodId = period.id;
+  } catch (err: any) {
+    return { error: `Failed to resolve payroll period: ${err.message}` };
+  }
 
-  if (existing) {
+  // Check for duplicate runs
+  const { data: existingRun } = await supabase
+    .from('payroll_runs')
+    .select('id')
+    .eq('payroll_period_id', periodId)
+    .limit(1)
+    
+  if (existingRun && existingRun.length > 0) {
     return { error: "A payroll run for this exact period and frequency already exists." }
   }
 
@@ -45,13 +53,15 @@ export async function previewPayrollRun(formData: FormData) {
     return { error: "No active employees found to process." }
   }
 
+
+
   // Calculate payroll for each employee using the deterministic engine
   const previewResults = [];
   
   for (const emp of activeEmployees) {
     try {
       const context = await loadPayrollContext(emp.id, start, end, freq as any);
-      const result = calculatePayroll(context);
+      const result = calculatePayroll(context, context.activePolicy);
       
       previewResults.push({
         employee_id: emp.id,
@@ -59,7 +69,17 @@ export async function previewPayrollRun(formData: FormData) {
         gross_pay: result.gross_pay.toNumber(),
         total_deductions: result.total_employee_deductions.toNumber(),
         net_pay: result.net_pay.toNumber(),
-        status: 'Ready'
+        status: 'Ready',
+        earnings: result.earnings.map(e => ({
+          type: e.type,
+          description: e.description,
+          amount: e.amount.toNumber()
+        })),
+        deductions: result.deductions.map(d => ({
+          type: d.type,
+          description: d.description,
+          amount: d.amount.toNumber()
+        }))
       });
     } catch (err: any) {
       previewResults.push({
@@ -68,7 +88,9 @@ export async function previewPayrollRun(formData: FormData) {
         gross_pay: 0,
         total_deductions: 0,
         net_pay: 0,
-        status: `Error: ${err.message}`
+        status: `Error: ${err.message}`,
+        earnings: [],
+        deductions: []
       });
     }
   }
@@ -87,19 +109,13 @@ export async function submitPayrollRun(formData: FormData, status: 'Draft' | 'Pe
   // Get current user for audit
   const { data: { user } } = await supabase.auth.getUser()
   
-  // 1. Create Period
-  const { data: period, error: pErr } = await supabase
-    .from('payroll_periods')
-    .insert({
-      period_start: start,
-      period_end: end,
-      pay_frequency: freq,
-      pay_date: payDate
-    })
-    .select('id')
-    .single()
-
-  if (pErr) return { error: pErr.message }
+  // 1. Get or Create Period
+  let period;
+  try {
+    period = await getOrCreatePayrollPeriod(start, end, freq);
+  } catch (err: any) {
+    return { error: `Failed to resolve payroll period: ${err.message}` };
+  }
 
   // 2. Create Run
   const { data: run, error: rErr } = await supabase
@@ -145,7 +161,7 @@ export async function submitPayrollRun(formData: FormData, status: 'Draft' | 'Pe
     for (const emp of activeEmployees.data) {
       try {
         const context = await loadPayrollContext(emp.id, start, end, freq as any);
-        const result = calculatePayroll(context);
+        const result = calculatePayroll(context, context.activePolicy);
         
           const { data: payrollItem, error: itemErr } = await supabase
             .from('payroll_items')
@@ -169,7 +185,6 @@ export async function submitPayrollRun(formData: FormData, status: 'Draft' | 'Pe
             await supabase.from('payroll_earnings').insert(
               result.earnings.map(e => ({
                 payroll_item_id: payrollItem.id,
-                earning_type: e.type,
                 description: e.description,
                 amount: e.amount.toNumber(),
                 is_taxable: e.is_taxable,
@@ -183,10 +198,8 @@ export async function submitPayrollRun(formData: FormData, status: 'Draft' | 'Pe
             await supabase.from('payroll_deductions').insert(
               result.deductions.map(d => ({
                 payroll_item_id: payrollItem.id,
-                deduction_type: d.type,
                 description: d.description,
                 amount: d.amount.toNumber(),
-                employer_amount: d.employer_amount ? d.employer_amount.toNumber() : 0,
                 calculated_amount: d.calculated_amount ? d.calculated_amount.toNumber() : d.amount.toNumber()
               }))
             )

@@ -1,8 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { approvePayrollRun, rejectPayrollRun, markPayrollPaid } from "./actions"
-import { Loader2, Check, X, Banknote } from "lucide-react"
+import { approvePayrollRun, rejectPayrollRun, markPayrollPaid, submitDraftForApproval, deleteDraft } from "./actions"
+import { Loader2, Check, X, Banknote, Send, Trash, FileText } from "lucide-react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 export default function PayrollActions({ runId, status }: { runId: string, status: string }) {
   const [loading, setLoading] = useState(false)
@@ -31,19 +33,83 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
 
   if (status === 'Approved') {
     return (
-      <button
-        onClick={handlePaid}
-        disabled={loading}
-        className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+      <div className="flex gap-3">
+        <Link
+          href={`/payroll/${runId}/payslips`}
+          target="_blank"
+          className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+        >
+          <FileText className="w-4 h-4" />
+          Print Payslips
+        </Link>
+        <button
+          onClick={handlePaid}
+          disabled={loading}
+          className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />}
+          Mark as Paid
+        </button>
+      </div>
+    )
+  }
+
+  if (status === 'Paid') {
+    return (
+      <Link
+        href={`/payroll/${runId}/payslips`}
+        target="_blank"
+        className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
       >
-        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />}
-        Mark as Paid
-      </button>
+        <FileText className="w-4 h-4" />
+        Print Payslips
+      </Link>
+    )
+  }
+
+  const router = useRouter()
+
+  if (status === 'Draft') {
+    return (
+      <div className="flex gap-3">
+        <button
+          onClick={async () => {
+            setLoading(true)
+            const result = await deleteDraft(runId)
+            if (result?.error) {
+              alert("Error deleting draft: " + result.error)
+              setLoading(false)
+            } else {
+              window.location.href = '/payroll'
+            }
+          }}
+          disabled={loading}
+          className="inline-flex items-center gap-2 bg-white border border-red-200 text-red-600 px-4 py-2 rounded-lg font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash className="w-4 h-4" />}
+          Delete Draft
+        </button>
+        <button
+          onClick={async () => {
+            setLoading(true)
+            const result = await submitDraftForApproval(runId)
+            if (result.error) {
+              alert("Error submitting for approval: " + result.error)
+            }
+            setLoading(false)
+          }}
+          disabled={loading}
+          className="inline-flex items-center gap-2 bg-slate-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 shadow-sm"
+        >
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          Submit for Approval
+        </button>
+      </div>
     )
   }
 
   if (status !== 'Pending Approval') {
-    return null // Buttons hidden if Draft, Paid, or Rejected
+    return null // Buttons hidden if Paid or Rejected
   }
 
   if (showReject) {

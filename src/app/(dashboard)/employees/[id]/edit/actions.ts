@@ -41,3 +41,50 @@ export async function updateEmployee(id: string, formData: FormData) {
   // Redirect back to the profile
   redirect(`/employees/${id}`)
 }
+
+export async function updateStatutoryProfile(employeeId: string, formData: FormData) {
+  const supabase = await createClient()
+  
+  const effectiveFrom = formData.get("effective_from") as string
+  if (!effectiveFrom) return { error: "Effective From date is required." }
+
+  // Check if we already have an active profile
+  const { data: currentProfile } = await supabase
+    .from('employee_statutory_profiles')
+    .select('id, effective_from')
+    .eq('employee_id', employeeId)
+    .is('effective_to', null)
+    .single()
+
+  if (currentProfile) {
+    if (new Date(effectiveFrom) <= new Date(currentProfile.effective_from)) {
+      return { error: "New effective date must be strictly after the current profile's effective date." }
+    }
+    
+    // Cap the old profile
+    const effectiveTo = new Date(new Date(effectiveFrom).getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    await supabase
+      .from('employee_statutory_profiles')
+      .update({ effective_to: effectiveTo })
+      .eq('id', currentProfile.id)
+  }
+
+  // Insert new profile
+  const { error } = await supabase
+    .from('employee_statutory_profiles')
+    .insert({
+      employee_id: employeeId,
+      effective_from: effectiveFrom,
+      reason: formData.get("reason") as string,
+      sss_applicable: formData.get("sss_applicable") === "true",
+      philhealth_applicable: formData.get("philhealth_applicable") === "true",
+      pagibig_applicable: formData.get("pagibig_applicable") === "true"
+    })
+
+  if (error) {
+    console.error("Error inserting statutory profile:", error)
+    return { error: error.message }
+  }
+
+  redirect(`/employees/${employeeId}/edit`)
+}
