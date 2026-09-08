@@ -144,3 +144,18 @@ export async function assignEmployeeWorkPolicy(payload: {
   revalidatePath(`/employees/${payload.employee_id}`)
   return { success: true }
 }
+
+export async function togglePayrollExemption(employeeId: string, isExempt: boolean) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('employees')
+    .update({ is_payroll_exempt: isExempt })
+    .eq('id', employeeId)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath(`/employees/${employeeId}`)
+  return { success: true }
+}

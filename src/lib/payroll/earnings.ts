@@ -40,19 +40,22 @@ export function calculateAttendanceBasedPay(
   }
 
   const details = context.timesheet.details || [];
-
+  console.log(`[ENGINE] Processing ${details.length} timesheet details for ${context.employee.id}. History count: ${context.employee.history.length}`);
+  
   let totalRegularEarnings = new Decimal(0);
   let totalOtEarnings = new Decimal(0);
   let totalNightEarnings = new Decimal(0);
   let totalUtDeductions = new Decimal(0);
 
   for (const detail of details) {
-    // 1. Get Active Compensation for this specific day
     const comp = getActiveCompensation(context.employee.history, detail.date);
-    if (!comp) continue;
+    if (!comp) {
+      console.log(`[ENGINE] Missing comp for date ${detail.date}`);
+      continue;
+    }
 
-    // 2. Derive Hourly Rate
     const rates = deriveHourlyRate(comp, policy);
+    console.log(`[ENGINE] Date ${detail.date} | Rate: ${rates.baseHourlyRate.toString()} | Regular Hrs: ${detail.regular_hours}`);
     const baseHourlyRate = rates.baseHourlyRate;
 
     // 3. Resolve Day Rules (Statutory vs Company)

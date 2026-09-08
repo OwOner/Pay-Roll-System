@@ -26,7 +26,7 @@ export default async function AttendancePage() {
           <AttendanceClient initialStartDate={startDate} initialEndDate={endDate} />
         </TabsContent>
         <TabsContent value="timesheets">
-          <TimesheetClient />
+          <TimesheetClient initialStartDate={startDate} initialEndDate={endDate} />
         </TabsContent>
       </Tabs>
     </div>

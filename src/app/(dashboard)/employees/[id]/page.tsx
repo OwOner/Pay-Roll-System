@@ -12,6 +12,7 @@ import { UpdateCompensationDialog } from "./update-compensation-dialog"
 import { AccountAccessTab } from "./account-access-tab"
 import { EmployeeAttendanceTab } from "./employee-attendance-tab"
 import { EmployeeWorkPolicyTab } from "./employee-work-policy-tab"
+import { ExemptToggle } from "./exempt-toggle"
 
 export default async function EmployeeProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -195,8 +196,10 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
                     <div className="font-medium text-slate-900">{employee.shift_schedule || 'Standard (9AM-6PM)'}</div>
                   </div>
                   <div>
-                    <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Cost Center</div>
-                    <div className="font-medium text-slate-900">-</div>
+                    <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Payroll Status</div>
+                    <div className="mt-1">
+                      <ExemptToggle employeeId={employee.id} initialExempt={employee.is_payroll_exempt || false} />
+                    </div>
                   </div>
                 </div>
               </CardContent>

@@ -79,7 +79,7 @@ export default function RunPayrollPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-900">Pay Frequency</label>
-                <select name="pay_frequency" defaultValue={formData?.get('pay_frequency')?.toString() || "Semi-Monthly"} required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50">
+                <select name="pay_frequency" defaultValue={formData?.get('pay_frequency')?.toString() || "Weekly"} required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50">
                   <option value="Semi-Monthly">Semi-Monthly</option>
                   <option value="Monthly">Monthly</option>
                   <option value="Weekly">Weekly</option>
@@ -89,17 +89,17 @@ export default function RunPayrollPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-900">Pay Date (Payout)</label>
-                <input type="date" name="pay_date" defaultValue={formData?.get('pay_date')?.toString()} required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
+                <input type="date" name="pay_date" defaultValue={formData?.get('pay_date')?.toString() || format(new Date(), 'yyyy-MM-dd')} required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
               </div>
               
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-900">Period Start</label>
-                <input type="date" name="period_start" defaultValue={formData?.get('period_start')?.toString()} required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
+                <input type="date" name="period_start" defaultValue={formData?.get('period_start')?.toString() || format(new Date(new Date().setDate(new Date().getDate() - new Date().getDay() - 7)), 'yyyy-MM-dd')} required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-900">Period End</label>
-                <input type="date" name="period_end" defaultValue={formData?.get('period_end')?.toString()} required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
+                <input type="date" name="period_end" defaultValue={formData?.get('period_end')?.toString() || format(new Date(new Date().setDate(new Date().getDate() - new Date().getDay() - 1)), 'yyyy-MM-dd')} required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
               </div>
             </div>
 

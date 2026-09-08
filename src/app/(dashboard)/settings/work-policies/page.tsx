@@ -32,20 +32,18 @@ export default async function WorkPoliciesPage() {
         </div>
         
         <Sheet>
-          {/* @ts-ignore */}<SheetTrigger>
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              New Policy
-            </Button>
+          <SheetTrigger render={<Button />}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            New Policy
           </SheetTrigger>
-          <SheetContent className="sm:max-w-[600px] overflow-y-auto">
+          <SheetContent className="sm:max-w-[600px] overflow-y-auto px-4 sm:px-6 pb-6">
             <SheetHeader className="mb-6">
               <SheetTitle>Create Work Policy</SheetTitle>
               <SheetDescription>
                 Define a standard work schedule and premium rules. The system will automatically enforce DOLE statutory minimums.
               </SheetDescription>
             </SheetHeader>
-            <WorkPolicyForm />
+            <div className="px-4 pb-6"><WorkPolicyForm /></div>
           </SheetContent>
         </Sheet>
       </div>
@@ -90,3 +88,4 @@ export default async function WorkPoliciesPage() {
     </div>
   )
 }
+

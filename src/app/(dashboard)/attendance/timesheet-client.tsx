@@ -11,10 +11,10 @@ import { AlertCircle, CheckCircle2, Play, Settings2, Trash2 } from "lucide-react
 import { fetchTimesheets, generateTimesheets, approveAllTimesheets, getOrCreatePayrollPeriod } from "./timesheet-actions"
 import TimesheetDetailDrawer from "./timesheet-detail-drawer"
 
-export default function TimesheetClient() {
-  const [startDate, setStartDate] = useState("2026-09-01")
-  const [endDate, setEndDate] = useState("2026-09-15")
-  const [frequency, setFrequency] = useState("Semi-Monthly")
+export default function TimesheetClient({ initialStartDate, initialEndDate }: { initialStartDate?: string, initialEndDate?: string }) {
+  const [startDate, setStartDate] = useState(initialStartDate || "2026-09-01")
+  const [endDate, setEndDate] = useState(initialEndDate || "2026-09-15")
+  const [frequency, setFrequency] = useState("Weekly")
   
   const [timesheets, setTimesheets] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)

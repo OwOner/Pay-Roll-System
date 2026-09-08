@@ -48,9 +48,10 @@ export async function previewPayrollRun(formData: FormData) {
     .from('employees')
     .select('id, first_name, last_name, employment_type')
     .eq('employment_status', 'Active')
+    .eq('is_payroll_exempt', false)
 
   if (!activeEmployees || activeEmployees.length === 0) {
-    return { error: "No active employees found to process." }
+    return { error: "No active, non-exempt employees found to process." }
   }
 
 
