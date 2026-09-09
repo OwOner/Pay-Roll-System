@@ -155,16 +155,16 @@ export async function initializeSSS(formData?: FormData) {
 
   // SSS table generation
   for (let msc = 4000; msc <= 35000; msc += 500) {
-    let min = msc === 4000 ? 0 : msc - 249.99
-    let max = msc === 35000 ? null : msc + 250.00
+    const min = msc === 4000 ? 0 : msc - 249.99
+    const max = msc === 35000 ? null : msc + 250.00
 
     // WISP (Workers' Investment and Savings Program) starts at MSC > 20000
     // But since the new limit is 35k, the regular SS is up to 35k?
     // According to SSS 2025, regular SS is up to 20k, WISP is from 20.5k to 35k.
     // However, the total deduction amount for the employee is simply based on the MSC.
     // Total EE = MSC * 5.5%, Total ER = MSC * 9.5%
-    let ee_amt = msc * EE_RATE
-    let er_amt = msc * ER_RATE
+    const ee_amt = msc * EE_RATE
+    const er_amt = msc * ER_RATE
 
     brackets.push({
       contribution_table_id: table.id,

@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       success: true,
       gross_pay: res.gross_pay,
       policy: ctx.activePolicy?.name,
-      timesheet_details: ctx.timesheet.details.map(d => ({
+      timesheet_details: ctx.timesheet.details?.map(d => ({
         date: d.date,
         day_type: d.day_type,
         regular_hours: d.regular_hours

@@ -145,6 +145,48 @@ export async function assignEmployeeWorkPolicy(payload: {
   return { success: true }
 }
 
+export async function removeEmployeeWorkPolicy(assignmentId: string, employeeId: string) {
+  const supabase = await createClient()
+  
+  const { error } = await supabase
+    .from("employee_work_policies")
+    .delete()
+    .eq("id", assignmentId)
+
+  if (error) {
+    console.error("Error removing work policy:", error)
+    return { error: error.message }
+  }
+
+  revalidatePath(`/employees/${employeeId}`)
+  return { success: true }
+}
+
+export async function updateEmployeeWorkPolicy(assignmentId: string, employeeId: string, payload: {
+  work_policy_id: string,
+  effective_from: string,
+  effective_to?: string
+}) {
+  const supabase = await createClient()
+  
+  const { error } = await supabase
+    .from("employee_work_policies")
+    .update({
+      work_policy_id: payload.work_policy_id,
+      effective_from: payload.effective_from,
+      effective_to: payload.effective_to || null
+    })
+    .eq("id", assignmentId)
+
+  if (error) {
+    console.error("Error updating work policy assignment:", error)
+    return { error: error.message }
+  }
+
+  revalidatePath(`/employees/${employeeId}`)
+  return { success: true }
+}
+
 export async function togglePayrollExemption(employeeId: string, isExempt: boolean) {
   const supabase = await createClient()
   const { error } = await supabase

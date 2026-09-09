@@ -37,8 +37,32 @@ export type ValidatedAttendanceRow = {
 export async function importAttendanceBatch(rows: ValidatedAttendanceRow[], batchId: string) {
   const supabase = await createClient()
 
-  // Format payload
-  const payload = rows.map(row => ({
+  // Server-side future-date guard (Asia/Manila)
+  const todayManila = new Date(
+    new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' })
+  )
+  todayManila.setHours(0, 0, 0, 0)
+
+  const futureRows = rows.filter(r => {
+    const d = new Date(r.work_date + 'T00:00:00')
+    return d > todayManila
+  })
+
+  if (futureRows.length > 0) {
+    const futureDates = [...new Set(futureRows.map(r => r.work_date))].join(', ')
+    return {
+      success: false,
+      error: `Import rejected: ${futureRows.length} record(s) have future dates (${futureDates}). Only today and past dates can be imported.`
+    }
+  }
+
+  const safeRows = rows.filter(r => {
+    const d = new Date(r.work_date + 'T00:00:00')
+    return d <= todayManila
+  })
+
+  // Format payload — use safeRows (future dates already blocked above)
+  const payload = safeRows.map(row => ({
     employee_id: row.employee_id,
     project_id: row.project_id || null,
     work_date: row.work_date,

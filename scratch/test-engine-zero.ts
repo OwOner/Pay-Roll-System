@@ -10,7 +10,7 @@ async function run() {
   console.log("Loading context...");
   const ctx = await loadPayrollContext(empId, start, end, freq as any);
   console.log("Context loaded! Active Policy:", ctx.activePolicy ? ctx.activePolicy.name : "None");
-  console.log("Timesheet details count:", ctx.timesheet.details.length);
+  console.log("Timesheet details count:", ctx.timesheet.details?.length ?? 0);
   
   const res = calculatePayroll(ctx, ctx.activePolicy as any);
   console.log("Result gross pay:", res.gross_pay.toString());

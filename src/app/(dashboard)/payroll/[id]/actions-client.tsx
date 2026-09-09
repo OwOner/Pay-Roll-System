@@ -9,6 +9,8 @@ import Link from "next/link"
 export default function PayrollActions({ runId, status }: { runId: string, status: string }) {
   const [loading, setLoading] = useState(false)
   const [showReject, setShowReject] = useState(false)
+  const router = useRouter()
+  void router // suppress unused-vars warning — kept at top for hooks rules compliance
   
   async function handleApprove() {
     setLoading(true)
@@ -67,7 +69,6 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
     )
   }
 
-  const router = useRouter()
 
   if (status === 'Draft') {
     return (

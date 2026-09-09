@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { format, eachDayOfInterval, parseISO, isSameDay, subDays } from "date-fns"
+import { format, eachDayOfInterval, parseISO, isSameDay, subDays, isAfter, startOfDay, isBefore } from "date-fns"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -68,7 +68,12 @@ export default function AttendanceClient({ initialStartDate, initialEndDate }: A
   const missingCount = activeDaysCount - records.length
   const otHours = records.reduce((sum, r) => sum + Number(r.overtime_hours || 0), 0)
 
+  const today = startOfDay(new Date())
+
+  const isDateLocked = (dateObj: Date) => isAfter(startOfDay(dateObj), today)
+
   const handleCellClick = (emp: any, dateObj: Date) => {
+    if (isDateLocked(dateObj)) return
     const dateStr = format(dateObj, 'yyyy-MM-dd')
     const existingRecord = records.find(r => r.employee_id === emp.id && r.work_date === dateStr)
     setSelectedRecord({ emp, date: dateStr, record: existingRecord || null })
@@ -269,12 +274,13 @@ export default function AttendanceClient({ initialStartDate, initialEndDate }: A
                       const dateStr = format(d, 'yyyy-MM-dd')
                       const record = records.find(r => r.employee_id === emp.id && r.work_date === dateStr)
                       const display = getStatusDisplay(record)
+                      const locked = isDateLocked(d)
                       return (
                         <TableCell 
                           key={dateStr} 
-                          className="text-center cursor-pointer hover:bg-muted/50 p-1"
+                          className={`text-center p-1 ${locked ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer hover:bg-muted/50'}`}
                           onClick={() => handleCellClick(emp, d)}
-                          title={display.title}
+                          title={locked ? 'Future dates cannot be edited' : display.title}
                         >
                           <span className={`font-bold text-sm ${display.color}`}>{display.label}</span>
                         </TableCell>
@@ -322,7 +328,9 @@ export default function AttendanceClient({ initialStartDate, initialEndDate }: A
                         </Badge>
                       </TableCell>
                       <TableCell>
-                         <Button variant="ghost" size="sm" onClick={() => handleCellClick(emp, parseISO(r.work_date))}>Edit</Button>
+                         {!isDateLocked(parseISO(r.work_date)) && (
+                           <Button variant="ghost" size="sm" onClick={() => handleCellClick(emp, parseISO(r.work_date))}>Edit</Button>
+                         )}
                       </TableCell>
                     </TableRow>
                   )

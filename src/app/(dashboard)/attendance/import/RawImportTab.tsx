@@ -172,7 +172,8 @@ export function RawImportTab() {
   }
 
   const runValidation = (emps: any[], projs: any[], curMap: Record<string,string>, data: RawRow[]) => {
-    let matched = 0, duplicates = 0, missingEmployee = 0, missingProject = 0
+    let matched = 0, missingEmployee = 0, missingProject = 0
+    const duplicates = 0
     
     const results = data.map((row, index) => {
       let problem = null
@@ -209,9 +210,21 @@ export function RawImportTab() {
           actionRequired = true
       }
 
+      // Block future dates
+      if (work_date_iso) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const rowDate = new Date(work_date_iso + 'T00:00:00')
+        if (rowDate > today) {
+          problem = `Future date (${work_date_iso}) — cannot import future attendance`
+          actionRequired = true
+        }
+      }
+
       // Parse Times
-      let time_in_iso = parseExcelTime(rawIn, baseDateObj)
+      const time_in_iso = parseExcelTime(rawIn, baseDateObj)
       let time_out_iso = parseExcelTime(rawOut, baseDateObj)
+
 
       // Handle Night Shift: if time_out < time_in, add 1 day to time_out
       if (time_in_iso && time_out_iso) {

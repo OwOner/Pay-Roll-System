@@ -31,31 +31,31 @@ function applyStatusConditionalFormatting(sheet: ExcelJS.Worksheet, range: strin
     ref: range,
     rules: [
       {
-        type: 'cellIs' as any, operator: 'equal', formulae: ['"PRE"'],
+        type: 'cellIs' as any, priority: 1, operator: 'equal', formulae: ['"PRE"'],
         style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFE6F4EA' } } }
       },
       {
-        type: 'cellIs' as any, operator: 'equal', formulae: ['"ABS"'],
+        type: 'cellIs' as any, priority: 2, operator: 'equal', formulae: ['"ABS"'],
         style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFCE8E6' } }, font: { color: { argb: 'FFC5221F' } } }
       },
       {
-        type: 'cellIs' as any, operator: 'equal', formulae: ['"LVE"'],
+        type: 'cellIs' as any, priority: 3, operator: 'equal', formulae: ['"LVE"'],
         style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFE8F0FE' } } }
       },
       {
-        type: 'cellIs' as any, operator: 'equal', formulae: ['"WFH"'],
+        type: 'cellIs' as any, priority: 4, operator: 'equal', formulae: ['"WFH"'],
         style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFE6F4EA' } } }
       },
       {
-        type: 'cellIs' as any, operator: 'equal', formulae: ['"RD"'],
+        type: 'cellIs' as any, priority: 5, operator: 'equal', formulae: ['"RD"'],
         style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFF1F3F4' } }, font: { color: { argb: 'FF5F6368' } } }
       },
       {
-        type: 'cellIs' as any, operator: 'equal', formulae: ['"HOL"'],
+        type: 'cellIs' as any, priority: 6, operator: 'equal', formulae: ['"HOL"'],
         style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFF3E8FD' } } }
       },
       {
-        type: 'cellIs' as any, operator: 'equal', formulae: ['"MIS"'],
+        type: 'cellIs' as any, priority: 7, operator: 'equal', formulae: ['"MIS"'],
         style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFEF7E0' } } }
       }
     ]
@@ -219,7 +219,7 @@ export async function generateSemiMonthlyExcelTemplate(periodStart: Date, period
   workbook.creator = 'Nexus Payroll System';
   
   const dates = [];
-  let current = new Date(periodStart);
+  const current = new Date(periodStart);
   while(current <= periodEnd) {
       dates.push(new Date(current));
       current.setDate(current.getDate() + 1);
@@ -297,7 +297,7 @@ export async function generateMonthlyExcelTemplate(year: number, month: number, 
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0);
   
-  let currentWeekStart = new Date(startDate);
+  const currentWeekStart = new Date(startDate);
   const day = currentWeekStart.getDay();
   const diff = currentWeekStart.getDate() - day + (day === 0 ? -6 : 1);
   currentWeekStart.setDate(diff); 

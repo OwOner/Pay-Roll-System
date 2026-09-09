@@ -30,7 +30,7 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
       setPeriodId(period.id)
       const res = await fetchTimesheets(period.id)
       if (res.success) {
-        setTimesheets(res.timesheets)
+        setTimesheets(res.timesheets ?? [])
       }
     } catch (e) {
       console.error(e)
@@ -67,7 +67,7 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
             <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-[140px]" />
             <span className="text-muted-foreground">to</span>
             <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-[140px]" />
-            <Select value={frequency} onValueChange={setFrequency}>
+            <Select value={frequency} onValueChange={(v, _) => { if (v !== null) setFrequency(v) }}>
               <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Semi-Monthly">Semi-Monthly</SelectItem>

@@ -308,7 +308,7 @@ describe("Payroll Calculation Engine", () => {
     expect(result1.snapshots.taxTableId).toBe("tax-table-1");
     
     // Mutate config
-    ctx.taxConfig.id = "tax-table-2";
+    ctx.taxConfig!.id = "tax-table-2";
     const result2 = calculatePayroll(ctx, ctx.activePolicy);
     
     expect(result1.snapshots.taxTableId).toBe("tax-table-1"); // Remains unchanged

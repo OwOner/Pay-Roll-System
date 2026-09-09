@@ -72,6 +72,24 @@ export async function updateAttendanceRecord(
 
   if (!user) return { success: false, error: 'Unauthorized' }
 
+  // --- Server-side future-date guard (Asia/Manila) ---
+  const todayManila = new Date(
+    new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' })
+  )
+  todayManila.setHours(0, 0, 0, 0)
+
+  const workDate = payload.work_date
+  if (workDate) {
+    const recordDate = new Date(workDate + 'T00:00:00')
+    if (recordDate > todayManila) {
+      return {
+        success: false,
+        error: `Attendance records cannot be created or modified for future dates (${workDate}). Only today and past dates are editable.`
+      }
+    }
+  }
+  // ---------------------------------------------------
+
   try {
     if (recordId) {
       // 1. Fetch original record
@@ -82,6 +100,15 @@ export async function updateAttendanceRecord(
         .single()
 
       if (!originalRecord) return { success: false, error: 'Record not found' }
+
+      // Guard against editing a record whose work_date is future
+      const existingDate = new Date((originalRecord.work_date as string) + 'T00:00:00')
+      if (existingDate > todayManila) {
+        return {
+          success: false,
+          error: `Cannot edit attendance for a future date (${originalRecord.work_date}).`
+        }
+      }
 
       const sourceBefore = originalRecord.source
       

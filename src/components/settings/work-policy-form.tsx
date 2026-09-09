@@ -28,18 +28,20 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { STATUTORY_RULES, DayType } from "@/lib/payroll/day-rules"
-import { createWorkPolicy } from "@/app/(dashboard)/settings/work-policies/actions"
+import { createWorkPolicy, updateWorkPolicy } from "@/app/(dashboard)/settings/work-policies/actions"
 import { useToast } from "@/hooks/use-toast"
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-const dayRulesSchema = z.record(
-  z.object({
-    base_multiplier: z.number().optional(),
-    ot_multiplier: z.number().optional(),
-    night_multiplier: z.number().optional(),
-  })
-)
+const dayRuleEntrySchema = z.object({
+  base_multiplier: z.number().optional(),
+  ot_multiplier: z.number().optional(),
+  night_multiplier: z.number().optional(),
+})
+
+type DayRuleEntry = z.infer<typeof dayRuleEntrySchema>
+
+const dayRulesSchema = z.record(z.string(), dayRuleEntrySchema)
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -66,13 +68,27 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-export function WorkPolicyForm({ onSuccess }: { onSuccess?: () => void }) {
+export function WorkPolicyForm({ onSuccess, initialData }: { onSuccess?: () => void, initialData?: any }) {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
+    resolver: zodResolver(formSchema) as any,
+    defaultValues: initialData ? {
+      name: initialData.name,
+      description: initialData.description || "",
+      scheduled_hours_per_day: Number(initialData.scheduled_hours_per_day),
+      scheduled_days_per_week: Number(initialData.scheduled_days_per_week),
+      rest_days: initialData.rest_days || [],
+      rest_days_paid: initialData.rest_days_paid,
+      daily_rate_method: initialData.daily_rate_method,
+      annualization_factor: initialData.annualization_factor ? Number(initialData.annualization_factor) : undefined,
+      ot_enabled: initialData.ot_enabled,
+      requires_ot_approval: initialData.requires_ot_approval,
+      ut_deduction_enabled: initialData.ut_deduction_enabled,
+      night_differential_enabled: initialData.night_differential_enabled,
+      custom_day_rules: initialData.custom_day_rules || {}
+    } : {
       name: "",
       description: "",
       scheduled_hours_per_day: 8,
@@ -96,7 +112,7 @@ export function WorkPolicyForm({ onSuccess }: { onSuccess?: () => void }) {
   Object.keys(customRules).forEach((dayTypeKey) => {
     const dayType = dayTypeKey as DayType
     const statutory = STATUTORY_RULES[dayType]
-    const custom = customRules[dayType]
+    const custom = customRules[dayType] as DayRuleEntry | undefined
 
     if (statutory && custom) {
       if (custom.base_multiplier && custom.base_multiplier < statutory.baseMultiplier.toNumber()) {
@@ -123,7 +139,10 @@ export function WorkPolicyForm({ onSuccess }: { onSuccess?: () => void }) {
 
     setIsSubmitting(true)
     try {
-      const result = await createWorkPolicy(data)
+      const result = initialData 
+        ? await updateWorkPolicy(initialData.id, { ...data, annualization_factor: data.annualization_factor ?? null })
+        : await createWorkPolicy({ ...data, annualization_factor: data.annualization_factor ?? null })
+
       if (result.error) {
         toast({
           title: "Error",
@@ -133,7 +152,7 @@ export function WorkPolicyForm({ onSuccess }: { onSuccess?: () => void }) {
       } else {
         toast({
           title: "Success",
-          description: "Work policy created successfully.",
+          description: initialData ? "Work policy updated successfully." : "Work policy created successfully.",
         })
         form.reset()
         if (onSuccess) onSuccess()
@@ -206,7 +225,7 @@ export function WorkPolicyForm({ onSuccess }: { onSuccess?: () => void }) {
               <FormItem>
                 <FormLabel>Scheduled Hours per Day</FormLabel>
                 <FormControl>
-                  <Input type="number" {...(field as any)} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                  <Input type="number" {...(field as any)} value={Number.isNaN(field.value) ? "" : field.value} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : "")} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -220,7 +239,7 @@ export function WorkPolicyForm({ onSuccess }: { onSuccess?: () => void }) {
               <FormItem>
                 <FormLabel>Scheduled Days per Week</FormLabel>
                 <FormControl>
-                  <Input type="number" {...(field as any)} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                  <Input type="number" {...(field as any)} value={Number.isNaN(field.value) ? "" : field.value} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : "")} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -257,7 +276,7 @@ export function WorkPolicyForm({ onSuccess }: { onSuccess?: () => void }) {
                                   ? field.onChange([...field.value, day])
                                   : field.onChange(
                                       field.value?.filter(
-                                        (value) => value !== day
+                                        (value: string) => value !== day
                                       )
                                     )
                               }}
@@ -314,7 +333,7 @@ export function WorkPolicyForm({ onSuccess }: { onSuccess?: () => void }) {
               <FormItem>
                 <FormLabel>Annualization Factor (if applicable)</FormLabel>
                 <FormControl>
-                  <Input type="number" {...(field as any)} onChange={e => field.onChange(parseFloat(e.target.value))} />
+                  <Input type="number" {...(field as any)} value={Number.isNaN(field.value) ? "" : field.value ?? ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
                 </FormControl>
                 <FormDescription>e.g., 261, 313, 393.5. Required for Annualized methods.</FormDescription>
                 <FormMessage />
@@ -443,7 +462,7 @@ export function WorkPolicyForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
 
         <Button type="submit" disabled={isSubmitting || warnings.length > 0}>
-          {isSubmitting ? "Saving..." : "Save Work Policy"}
+          {isSubmitting ? "Saving..." : initialData ? "Update Work Policy" : "Save Work Policy"}
         </Button>
       </form>
     </Form>

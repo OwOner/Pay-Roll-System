@@ -115,6 +115,17 @@ export async function validateExcelBatch(parsedRows: ParsedAttendanceRow[]): Pro
       return result
     }
 
+    // Block importing records for future dates (after today)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const rowDate = new Date(row.date_iso + 'T00:00:00')
+    if (rowDate > today) {
+      result.action = 'Invalid'
+      result.reason = `Future date (${row.date_iso}) — only today and past dates can be imported`
+      result.skip = true
+      return result
+    }
+
     const existing = recordMap.get(`${emp.id}_${row.date_iso}`)
 
     if (existing) {
@@ -156,14 +167,22 @@ export async function commitExcelBatch(validatedRows: ExcelValidationResult[], b
 
   const rowsToProcess = validatedRows.filter(r => !r.skip && r.employee_id && r.status_full)
 
-  if (rowsToProcess.length === 0) {
-    return { success: false, error: 'No valid rows to commit' }
+  // Server-side safety net: never commit records for future dates
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const safRows = rowsToProcess.filter(r => {
+    const d = new Date(r.date_iso + 'T00:00:00')
+    return d <= today
+  })
+
+  if (safRows.length === 0) {
+    return { success: false, error: 'No valid rows to commit (future dates are not allowed)' }
   }
 
   const updates = []
   const inserts = []
 
-  for (const row of rowsToProcess) {
+  for (const row of safRows) {
     // If UT hours are present, we might want to store them in internal_notes since DB doesn't have a specific column yet
     const notes = row.ut_hours ? `Undertime: ${row.ut_hours} hrs` : null;
 

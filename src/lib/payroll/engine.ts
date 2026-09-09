@@ -26,7 +26,7 @@ export function calculatePayroll(context: PayrollContext, activePolicy: WorkPoli
   }
 
   const earnings: EarningResult[] = [];
-  let deductions: DeductionResult[] = [];
+  const deductions: DeductionResult[] = [];
 
   // 1. Calculate Earnings & Deductions via Multiplicative Attendance Engine
   const attendanceResult = calculateAttendanceBasedPay(context, activePolicy);

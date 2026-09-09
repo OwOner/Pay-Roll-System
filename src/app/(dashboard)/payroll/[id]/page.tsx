@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card"
 import { AlertCircle, CheckCircle, Clock, XCircle, FileText, ChevronRight, Eye } from "lucide-react"
 import Link from "next/link"
 import PayrollActions from "./actions-client"
+import { EarningOverridePanel } from "./earning-override-panel"
 import {
   Dialog,
   DialogContent,
@@ -55,8 +56,18 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
       net_pay,
       total_deductions,
       employees ( first_name, last_name, employee_code ),
-      payroll_earnings ( description, amount ),
-      payroll_deductions ( description, amount )
+      payroll_earnings (
+        id,
+        description,
+        amount,
+        calculated_amount,
+        override_reason,
+        override_by,
+        override_at,
+        is_taxable,
+        source
+      ),
+      payroll_deductions ( id, description, amount, calculated_amount, override_reason )
     `)
     .eq('payroll_run_id', id)
 
@@ -164,12 +175,14 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
                               <div className="space-y-6 py-4">
                                 <div>
                                   <h4 className="text-sm font-semibold text-slate-900 mb-2 pb-2 border-b border-slate-100">Earnings</h4>
-                                  <div className="space-y-2">
-                                    {(item as any).payroll_earnings?.map((e: any, i: number) => (
-                                      <div key={i} className="flex justify-between text-sm">
-                                        <span className="text-slate-600">{e.description}</span>
-                                        <span className="font-medium text-slate-900">₱{Number(e.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                                      </div>
+                                  <div className="space-y-3">
+                                    {(item as any).payroll_earnings?.map((e: any) => (
+                                      <EarningOverridePanel
+                                        key={e.id}
+                                        earning={e}
+                                        payrollRunId={run.id}
+                                        isLocked={run.status === 'Approved' || run.status === 'Paid'}
+                                      />
                                     ))}
                                     {(!(item as any).payroll_earnings || (item as any).payroll_earnings.length === 0) && (
                                       <p className="text-sm text-slate-500 italic">No earnings found.</p>
