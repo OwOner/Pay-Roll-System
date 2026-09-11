@@ -14,9 +14,10 @@ function getBaseContext(): PayrollContext {
           id: "comp-1",
           effective_from: "2026-01-01",
           effective_to: null,
+          salary_basis: "Monthly" as const,
           salary_type: "Monthly",
           basic_salary: new Decimal(30000),
-          daily_rate: new Decimal(1153.85) // roughly 30000 / 26
+          daily_rate: new Decimal(0),
         }
       ]
     },
@@ -265,6 +266,7 @@ describe("Payroll Calculation Engine", () => {
       id: "comp-2",
       effective_from: "2026-09-10",
       effective_to: null,
+      salary_basis: "Monthly" as const,
       salary_type: "Monthly",
       basic_salary: new Decimal(40000),
       daily_rate: new Decimal(1538.46)

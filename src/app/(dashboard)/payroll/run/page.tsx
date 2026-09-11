@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
-import { PlayCircle, Loader2, Save, Send, Eye } from "lucide-react"
+import { PlayCircle, Loader2, Save, Send, Eye, ChevronDown } from "lucide-react"
 import { previewPayrollRun, submitPayrollRun } from "./actions"
-import { format, parseISO } from "date-fns"
+import { format } from "date-fns"
 import {
   Dialog,
   DialogContent,
@@ -13,25 +13,77 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
+// --- helpers ---
+function prevMonday(d: Date) {
+  const day = d.getDay() // 0=Sun,1=Mon,...,6=Sat
+  const diff = day === 0 ? -6 : 1 - day
+  const monday = new Date(d)
+  monday.setDate(d.getDate() + diff - 7)
+  return monday
+}
+function addDays(d: Date, n: number) {
+  const r = new Date(d)
+  r.setDate(r.getDate() + n)
+  return r
+}
+function fmt(d: Date) { return format(d, 'yyyy-MM-dd') }
+function fmtDisplay(s: string) {
+  // parse yyyy-MM-dd without timezone shift
+  const [y, m, d] = s.split('-').map(Number)
+  return format(new Date(y, m - 1, d), 'MMM d, yyyy')
+}
+
 export default function RunPayrollPage() {
+  const today = new Date()
+  const defaultStart = fmt(prevMonday(today))
+  const defaultEnd = fmt(addDays(prevMonday(today), 6))
+  const defaultPayDate = fmt(addDays(prevMonday(today), 8)) // Wednesday next week
+
   const [step, setStep] = useState<1 | 2>(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
-  // Form State
-  const [formData, setFormData] = useState<FormData | null>(null)
+
+  // Period form values — remembered across steps
+  const [periodStart, setPeriodStart] = useState(defaultStart)
+  const [periodEnd, setPeriodEnd] = useState(defaultEnd)
+  const [payFrequency, setPayFrequency] = useState("Weekly")
+  const [payDate, setPayDate] = useState(defaultPayDate)
+
   const [preview, setPreview] = useState<any[]>([])
 
-  async function handlePreview(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
+  // Persist last-used period in localStorage so returning to the page pre-fills it
+  useEffect(() => {
+    const saved = localStorage.getItem('payroll_run_period')
+    if (saved) {
+      try {
+        const p = JSON.parse(saved)
+        if (p.start) setPeriodStart(p.start)
+        if (p.end) setPeriodEnd(p.end)
+        if (p.freq) setPayFrequency(p.freq)
+        if (p.payDate) setPayDate(p.payDate)
+      } catch {}
+    }
+  }, [])
+
+  function savePeriod() {
+    localStorage.setItem('payroll_run_period', JSON.stringify({
+      start: periodStart, end: periodEnd, freq: payFrequency, payDate
+    }))
+  }
+
+  async function handlePreview() {
     setLoading(true)
     setError(null)
-    
-    const data = new FormData(e.currentTarget)
-    setFormData(data)
-    
+    savePeriod()
+
+    const data = new FormData()
+    data.set('period_start', periodStart)
+    data.set('period_end', periodEnd)
+    data.set('pay_frequency', payFrequency)
+    data.set('pay_date', payDate)
+
     const result = await previewPayrollRun(data)
-    
+
     if (result.error) {
       setError(result.error)
       setLoading(false)
@@ -46,12 +98,17 @@ export default function RunPayrollPage() {
   }
 
   async function handleSubmit(status: 'Draft' | 'Pending Approval') {
-    if (!formData) return
     setLoading(true)
     setError(null)
 
-    const result = await submitPayrollRun(formData, status)
-    
+    const data = new FormData()
+    data.set('period_start', periodStart)
+    data.set('period_end', periodEnd)
+    data.set('pay_frequency', payFrequency)
+    data.set('pay_date', payDate)
+
+    const result = await submitPayrollRun(data, status)
+
     if (result.error) {
       setError(result.error)
       setLoading(false)
@@ -59,11 +116,15 @@ export default function RunPayrollPage() {
     // Success redirects in action
   }
 
+  const allReady = preview.length > 0 && preview.every(r => r.status === 'Ready')
+  const hasWarnings = preview.some(r => r.status.startsWith('Warning'))
+  const hasErrors = preview.some(r => r.status.startsWith('Error'))
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-12">
       <div className="flex flex-col gap-2">
         <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Run Payroll</h2>
-        <p className="text-slate-500">Select the period to calculate and preview before generating.</p>
+        <p className="text-slate-500">Select the period, preview, then generate the payroll run.</p>
       </div>
 
       {error && (
@@ -72,71 +133,88 @@ export default function RunPayrollPage() {
         </div>
       )}
 
-      {step === 1 && (
-        <Card className="bg-white rounded-xl border-slate-200 shadow-sm p-6">
-          <form onSubmit={handlePreview} className="space-y-6">
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-900">Pay Frequency</label>
-                <select name="pay_frequency" defaultValue={formData?.get('pay_frequency')?.toString() || "Weekly"} required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50">
-                  <option value="Semi-Monthly">Semi-Monthly</option>
-                  <option value="Monthly">Monthly</option>
-                  <option value="Weekly">Weekly</option>
-                  <option value="Daily">Daily</option>
-                </select>
-              </div>
+      {/* Period bar — always visible, collapsed in step 2 */}
+      <Card className="bg-white rounded-xl border-slate-200 shadow-sm p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
 
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-900">Pay Date (Payout)</label>
-                <input type="date" name="pay_date" defaultValue={formData?.get('pay_date')?.toString() || format(new Date(), 'yyyy-MM-dd')} required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-900">Period Start</label>
-                <input type="date" name="period_start" defaultValue={formData?.get('period_start')?.toString() || format(new Date(new Date().setDate(new Date().getDate() - new Date().getDay() - 7)), 'yyyy-MM-dd')} required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-900">Period End</label>
-                <input type="date" name="period_end" defaultValue={formData?.get('period_end')?.toString() || format(new Date(new Date().setDate(new Date().getDate() - new Date().getDay() - 1)), 'yyyy-MM-dd')} required className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-4 border-t border-slate-100">
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="inline-flex items-center gap-2 bg-slate-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
+          <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Frequency</label>
+              <select
+                value={payFrequency}
+                onChange={e => setPayFrequency(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-slate-900 focus:outline-none"
               >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />}
-                Calculate & Preview
-              </button>
+                <option value="Semi-Monthly">Semi-Monthly</option>
+                <option value="Monthly">Monthly</option>
+                <option value="Weekly">Weekly</option>
+                <option value="Daily">Daily</option>
+              </select>
             </div>
-          </form>
-        </Card>
-      )}
 
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Period Start</label>
+              <input
+                type="date"
+                value={periodStart}
+                onChange={e => setPeriodStart(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-slate-900 focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Period End</label>
+              <input
+                type="date"
+                value={periodEnd}
+                onChange={e => setPeriodEnd(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-slate-900 focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pay Date</label>
+              <input
+                type="date"
+                value={payDate}
+                onChange={e => setPayDate(e.target.value)}
+                className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-slate-900 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={handlePreview}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 bg-slate-900 text-white px-5 py-2 rounded-lg font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 shrink-0 h-[38px]"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />}
+            {step === 2 ? 'Re-calculate' : 'Calculate & Preview'}
+          </button>
+        </div>
+      </Card>
+
+      {/* Preview table */}
       {step === 2 && (
         <div className="space-y-6">
           <Card className="bg-white rounded-xl border-slate-200 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Calculation Preview</h3>
-                {formData && (
-                  <p className="text-sm text-slate-500 mt-1">
-                    {formData.get('pay_frequency') as string} Period: <span className="font-medium text-slate-700">{formData.get('period_start') ? format(new Date(...(formData.get('period_start') as string).split('-').map((v, i) => i === 1 ? parseInt(v) - 1 : parseInt(v)) as [number, number, number]), 'MMM d, yyyy') : ''}</span> to <span className="font-medium text-slate-700">{formData.get('period_end') ? format(new Date(...(formData.get('period_end') as string).split('-').map((v, i) => i === 1 ? parseInt(v) - 1 : parseInt(v)) as [number, number, number]), 'MMM d, yyyy') : ''}</span>
-                  </p>
-                )}
+                <p className="text-sm text-slate-500 mt-1">
+                  {payFrequency} Period:{' '}
+                  <span className="font-medium text-slate-700">{fmtDisplay(periodStart)}</span>
+                  {' '}to{' '}
+                  <span className="font-medium text-slate-700">{fmtDisplay(periodEnd)}</span>
+                </p>
               </div>
-              <button 
-                onClick={() => setStep(1)}
-                className="text-sm font-medium text-slate-500 hover:text-slate-900"
-              >
-                Edit Period
-              </button>
+              {(hasWarnings || hasErrors) && (
+                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 max-w-xs">
+                  ⚠️ Some employees have warnings or errors. Review before submitting.
+                </div>
+              )}
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
@@ -159,6 +237,10 @@ export default function RunPayrollPage() {
                       <td className="px-6 py-4 text-center text-slate-500">
                         {row.status === 'Ready' ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Ready</span>
+                        ) : row.status.startsWith('Warning') ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-100 text-amber-800 max-w-xs text-left">
+                            {row.status}
+                          </span>
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-red-100 text-red-800 max-w-xs text-left">
                             {row.status}
@@ -166,17 +248,65 @@ export default function RunPayrollPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        {row.status === 'Ready' && (
-                          <Dialog>
-                            <DialogTrigger className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                              <Eye className="w-3.5 h-3.5" />
-                              Details
-                            </DialogTrigger>
+                        <Dialog>
+                          <DialogTrigger className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                            row.status === 'Ready'
+                              ? 'text-slate-700 bg-white border-slate-200 hover:bg-slate-50'
+                              : row.status.startsWith('Warning')
+                              ? 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
+                              : 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100'
+                          }`}>
+                            <Eye className="w-3.5 h-3.5" />
+                            {row.status === 'Ready' ? 'Details' : 'View Issue'}
+                          </DialogTrigger>
                             <DialogContent className="max-w-md">
                               <DialogHeader>
                                 <DialogTitle>Calculation Breakdown - {row.name}</DialogTitle>
                               </DialogHeader>
                               <div className="space-y-6 py-4">
+                                {/* Diagnostic block — always shown */}
+                                {row.diagnostic && (
+                                  <div className="bg-slate-50 rounded-lg p-3 space-y-1.5 border border-slate-100">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Calculation Inputs</p>
+                                    {[
+                                      ['Salary Basis', row.diagnostic.salary_basis],
+                                      ['Rate', row.diagnostic.rate],
+                                      ['Pay Frequency', row.diagnostic.pay_frequency],
+                                      ['Work Policy', row.diagnostic.work_policy],
+                                      ['Approved Regular Hrs', row.diagnostic.approved_reg_hrs],
+                                      ['Approved OT Hrs', row.diagnostic.approved_ot_hrs],
+                                      ['Approved UT Hrs', row.diagnostic.approved_ut_hrs],
+                                    ].map(([label, value]) => (
+                                      <div key={label as string} className="flex justify-between text-xs">
+                                        <span className="text-slate-500">{label}</span>
+                                        <span className="font-medium text-slate-800">{String(value)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {/* Error/Warning message */}
+                                {row.status !== 'Ready' && (
+                                  <div className={`rounded-lg p-3 text-sm ${
+                                    row.status.startsWith('Warning')
+                                      ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                                      : 'bg-red-50 border border-red-200 text-red-800'
+                                  }`}>
+                                    <p className="font-semibold mb-1">
+                                      {row.status.startsWith('Warning') ? '⚠ Warning' : '✗ Cannot Calculate Payroll'}
+                                    </p>
+                                    <p className="text-xs">{row.status.replace(/^(Error|Warning): ?/, '')}</p>
+                                    {row.status.startsWith('Error') && (
+                                      <a
+                                        href={`/employees/${row.employee_id}?tab=compensation`}
+                                        className="inline-block mt-2 text-xs font-semibold text-red-700 underline hover:no-underline"
+                                      >
+                                        Fix Compensation →
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+                                {row.status === 'Ready' && (
+                                  <>
                                 <div>
                                   <h4 className="text-sm font-semibold text-slate-900 mb-2 pb-2 border-b border-slate-100">Earnings</h4>
                                   <div className="space-y-2">
@@ -191,7 +321,7 @@ export default function RunPayrollPage() {
                                     )}
                                   </div>
                                 </div>
-                                
+
                                 <div>
                                   <h4 className="text-sm font-semibold text-slate-900 mb-2 pb-2 border-b border-slate-100">Deductions</h4>
                                   <div className="space-y-2">
@@ -215,38 +345,53 @@ export default function RunPayrollPage() {
                                   <span className="font-bold text-slate-900">Net Pay</span>
                                   <span className="text-lg font-bold text-emerald-600">₱{row.net_pay.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                                 </div>
+                                  </>
+                                )}
                               </div>
                             </DialogContent>
                           </Dialog>
-                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+
+            {/* Totals */}
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-12">
+              <div className="text-right">
+                <p className="text-xs text-slate-500 uppercase tracking-wide">Total Gross</p>
+                <p className="text-lg font-bold text-slate-900">₱{preview.reduce((s, r) => s + r.gross_pay, 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-slate-500 uppercase tracking-wide">Total Deductions</p>
+                <p className="text-lg font-bold text-red-600">-₱{preview.reduce((s, r) => s + r.total_deductions, 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-slate-500 uppercase tracking-wide">Total Net Pay</p>
+                <p className="text-lg font-bold text-emerald-600">₱{preview.reduce((s, r) => s + r.net_pay, 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              </div>
+            </div>
           </Card>
 
-          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <span className="text-sm text-slate-500">Preview is server-authoritative. Calculations cannot be modified manually without overriding active configurations.</span>
-            <div className="flex gap-3">
-              <button 
-                onClick={() => handleSubmit('Draft')}
-                disabled={loading}
-                className="inline-flex items-center gap-2 bg-white text-slate-900 border border-slate-200 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Save as Draft
-              </button>
-              <button 
-                onClick={() => handleSubmit('Pending Approval')}
-                disabled={loading}
-                className="inline-flex items-center gap-2 bg-slate-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 shadow-sm"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                Submit for Approval
-              </button>
-            </div>
+          {/* Submit buttons */}
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => handleSubmit('Draft')}
+              disabled={loading || hasErrors}
+              className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-5 py-2.5 rounded-lg font-medium hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Save as Draft
+            </button>
+            <button
+              onClick={() => handleSubmit('Pending Approval')}
+              disabled={loading || !allReady}
+              className="inline-flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Submit for Approval
+            </button>
           </div>
         </div>
       )}

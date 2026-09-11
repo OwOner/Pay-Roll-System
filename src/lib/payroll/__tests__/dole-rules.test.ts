@@ -28,6 +28,7 @@ describe("DOLE Statutory OT/UT Engine Tests", () => {
     it("should yield different hourly rates for 261 vs 313 for same monthly salary", () => {
       const comp = {
         id: "comp-1",
+        salary_basis: "Monthly" as const,
         salary_type: "Monthly",
         basic_salary: new Decimal(20000), // 20k per month
         effective_from: "2026-01-01", effective_to: null,

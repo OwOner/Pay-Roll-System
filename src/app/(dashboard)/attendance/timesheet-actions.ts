@@ -101,14 +101,19 @@ export async function generateTimesheets(payrollPeriodId: string) {
     // Check if Approved timesheet exists
     const { data: existing } = await supabase
       .from('timesheets')
-      .select('id, status')
+      .select('id, status, total_regular_hours')
       .eq('employee_id', emp.id)
       .eq('payroll_period_id', payrollPeriodId)
       .single()
 
     if (existing && existing.status === 'Approved') {
-      skipped++
-      continue
+      // Skip truly approved timesheets (with real hours), but allow re-generating
+      // ones that were approved with 0 hours (approved before attendance was imported)
+      const hasHours = (existing.total_regular_hours ?? 0) > 0
+      if (hasHours) {
+        skipped++
+        continue
+      }
     }
 
     // Resolve Work Policy for this employee for this period start date

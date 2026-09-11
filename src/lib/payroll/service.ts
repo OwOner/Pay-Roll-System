@@ -63,6 +63,15 @@ export async function loadPayrollContext(
     throw new Error(`No active compensation found for employee ${employeeId} during this period.`);
   }
 
+  // Validate salary_basis — if null, this is an unresolved legacy row from before the 036 migration.
+  if (!activeComp.salary_basis) {
+    throw new Error(
+      `Compensation record for this employee has no Salary Basis configured ` +
+      `(the "salary_type" value "${activeComp.salary_type ?? 'unknown'}" could not be automatically migrated). ` +
+      `Open the employee's Compensation tab and update their Salary Basis before running payroll.`
+    );
+  }
+
   const empData = {
     id: employee.id,
     first_name: employee.first_name,
@@ -72,9 +81,12 @@ export async function loadPayrollContext(
       id: activeComp.id,
       effective_from: activeComp.effective_from,
       effective_to: activeComp.effective_to,
-      salary_type: activeComp.salary_type,
-      basic_salary: new Decimal(activeComp.basic_salary),
+      salary_basis: activeComp.salary_basis as "Monthly" | "Daily" | "Weekly" | "Hourly",
+      salary_type: activeComp.salary_type, // kept for reference, deprecated
+      basic_salary: new Decimal(activeComp.basic_salary || 0),
       daily_rate: new Decimal(activeComp.daily_rate || 0),
+      weekly_rate: activeComp.weekly_rate ? new Decimal(activeComp.weekly_rate) : undefined,
+      hourly_rate: activeComp.hourly_rate ? new Decimal(activeComp.hourly_rate) : undefined,
     }]
   };
 

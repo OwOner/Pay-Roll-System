@@ -254,9 +254,9 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
                   <TableRow>
                     <TableHead className="pl-6">Effective Date</TableHead>
                     <TableHead>End Date</TableHead>
-                    <TableHead>Salary Type</TableHead>
-                    <TableHead>Frequency</TableHead>
-                    <TableHead className="text-right">Basic Rate</TableHead>
+                    <TableHead>Salary Basis</TableHead>
+                    <TableHead>Pay Frequency</TableHead>
+                    <TableHead className="text-right">Rate</TableHead>
                     <TableHead className="text-right pr-6">Daily Equivalent</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -272,10 +272,25 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
                             <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-200">Current</Badge>
                           )}
                         </TableCell>
-                        <TableCell>{comp.salary_type}</TableCell>
+                        <TableCell>
+                          {comp.salary_basis ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                              {comp.salary_basis}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                              ⚠ Needs Review
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell>{comp.pay_frequency}</TableCell>
-                        <TableCell className="text-right font-semibold text-slate-900">₱{comp.basic_salary.toLocaleString()}</TableCell>
-                        <TableCell className="text-right pr-6 text-slate-600">₱{comp.daily_rate ? comp.daily_rate.toLocaleString() : '-'}</TableCell>
+                        <TableCell className="text-right font-semibold text-slate-900">
+                          {comp.salary_basis === 'Daily'   && comp.daily_rate   ? `₱${Number(comp.daily_rate).toLocaleString()}/day` : ''}
+                          {comp.salary_basis === 'Weekly'  && comp.weekly_rate  ? `₱${Number(comp.weekly_rate).toLocaleString()}/wk` : ''}
+                          {comp.salary_basis === 'Hourly'  && comp.hourly_rate  ? `₱${Number(comp.hourly_rate).toLocaleString()}/hr` : ''}
+                          {(comp.salary_basis === 'Monthly' || !comp.salary_basis) ? `₱${Number(comp.basic_salary).toLocaleString()}/mo` : ''}
+                        </TableCell>
+                        <TableCell className="text-right pr-6 text-slate-600">{comp.daily_rate ? `₱${Number(comp.daily_rate).toLocaleString()}` : '—'}</TableCell>
                       </TableRow>
                     ))
                   ) : (

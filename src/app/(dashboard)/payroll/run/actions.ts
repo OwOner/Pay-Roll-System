@@ -58,19 +58,48 @@ export async function previewPayrollRun(formData: FormData) {
 
   // Calculate payroll for each employee using the deterministic engine
   const previewResults = [];
-  
+
   for (const emp of activeEmployees) {
     try {
       const context = await loadPayrollContext(emp.id, start, end, freq as any);
       const result = calculatePayroll(context, context.activePolicy);
-      
+
+      // Distinguish genuine zero-hours (timesheet issue) from successful calculation
+      const totalApprovedHours = context.timesheet.details?.reduce(
+        (sum: number, d: any) => sum + (Number(d.regular_hours) || 0), 0
+      ) ?? 0;
+
+      const activeComp = context.employee.history[0];
+      const diagnostic = {
+        salary_basis:      (activeComp as any).salary_basis ?? '—',
+        rate:              activeComp.salary_basis === 'Daily'  ? `₱${activeComp.daily_rate?.toString()}/day`
+                         : activeComp.salary_basis === 'Weekly' ? `₱${(activeComp as any).weekly_rate?.toString()}/wk`
+                         : activeComp.salary_basis === 'Hourly' ? `₱${activeComp.hourly_rate?.toString()}/hr`
+                         : `₱${activeComp.basic_salary.toString()}/mo`,
+        pay_frequency:     (activeComp as any).pay_frequency ?? '—',
+        work_policy:       context.activePolicy ? 'Assigned' : 'Default (no policy assigned)',
+        approved_reg_hrs:  totalApprovedHours,
+        approved_ot_hrs:   context.timesheet.total_payable_ot_hours?.toString() ?? '0',
+        approved_ut_hrs:   context.timesheet.total_payable_ut_hours?.toString() ?? '0',
+      };
+
+      let status: string;
+      if (result.gross_pay.greaterThan(0)) {
+        status = 'Ready';
+      } else if (totalApprovedHours === 0) {
+        status = 'Warning: Timesheet has 0 approved hours — regenerate timesheets after importing attendance.';
+      } else {
+        status = 'Warning: ₱0 calculated despite approved hours — check compensation configuration.';
+      }
+
       previewResults.push({
         employee_id: emp.id,
         name: `${emp.first_name} ${emp.last_name}`,
         gross_pay: result.gross_pay.toNumber(),
         total_deductions: result.total_employee_deductions.toNumber(),
         net_pay: result.net_pay.toNumber(),
-        status: 'Ready',
+        status,
+        diagnostic,
         earnings: result.earnings.map(e => ({
           type: e.type,
           description: e.description,
@@ -90,6 +119,7 @@ export async function previewPayrollRun(formData: FormData) {
         total_deductions: 0,
         net_pay: 0,
         status: `Error: ${err.message}`,
+        diagnostic: null,
         earnings: [],
         deductions: []
       });

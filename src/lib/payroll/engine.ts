@@ -16,11 +16,11 @@ import {
 } from "./contributions";
 import { calculateWithholdingTax } from "./tax";
 import { validatePayrollResult } from "./validation";
-import { WorkPolicy } from "./rate-calculator";
+import { WorkPolicy, DEFAULT_WORK_POLICY } from "./rate-calculator";
 
 export const CALCULATION_ENGINE_VERSION = "2.0.0"; // Upgraded to Multiplicative Engine
 
-export function calculatePayroll(context: PayrollContext, activePolicy: WorkPolicy): PayrollCalculationResult {
+export function calculatePayroll(context: PayrollContext, activePolicy?: WorkPolicy | null): PayrollCalculationResult {
   if (!context.employee.history || context.employee.history.length === 0) {
     throw new Error(`No compensation history found for employee ${context.employee.id}.`);
   }
@@ -28,8 +28,10 @@ export function calculatePayroll(context: PayrollContext, activePolicy: WorkPoli
   const earnings: EarningResult[] = [];
   const deductions: DeductionResult[] = [];
 
+  const policyToUse = activePolicy || DEFAULT_WORK_POLICY;
+
   // 1. Calculate Earnings & Deductions via Multiplicative Attendance Engine
-  const attendanceResult = calculateAttendanceBasedPay(context, activePolicy);
+  const attendanceResult = calculateAttendanceBasedPay(context, policyToUse);
   earnings.push(...attendanceResult.earnings);
   deductions.push(...attendanceResult.deductions);
   

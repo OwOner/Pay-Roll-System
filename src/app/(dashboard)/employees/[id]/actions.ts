@@ -7,40 +7,48 @@ export async function addCompensationHistory(formData: FormData) {
   const supabase = await createClient()
 
   const employee_id = formData.get("employee_id") as string
-  const basic_salary = parseFloat(formData.get("basic_salary") as string)
+  const salary_basis = formData.get("salary_basis") as string  // Monthly | Daily | Weekly | Hourly
+  const rate = parseFloat(formData.get("rate") as string)      // the raw rate in its basis unit
   const pay_frequency = formData.get("pay_frequency") as string
   const effective_from = formData.get("effective_from") as string
 
-  if (!employee_id || !basic_salary || !pay_frequency || !effective_from) {
+  if (!employee_id || !salary_basis || !rate || !pay_frequency || !effective_from) {
     return { error: "Missing required fields" }
   }
 
-  const salary_type = pay_frequency; 
-  
-  // Calculate standard daily rate based on frequency (using 261 days/year)
-  let annualized_salary = 0;
-  switch (pay_frequency) {
-    case 'Weekly':
-      annualized_salary = basic_salary * 52;
-      break;
-    case 'Bi-weekly':
-      annualized_salary = basic_salary * 26;
-      break;
-    case 'Semi-monthly':
-      annualized_salary = basic_salary * 24;
-      break;
-    case 'Monthly':
-      annualized_salary = basic_salary * 12;
-      break;
-    case 'Daily':
-      annualized_salary = basic_salary * 261;
-      break;
-    default:
-      annualized_salary = basic_salary * 12; // Fallback
+  if (!['Monthly', 'Daily', 'Weekly', 'Hourly'].includes(salary_basis)) {
+    return { error: `Invalid salary basis: "${salary_basis}". Must be Monthly, Daily, Weekly, or Hourly.` }
   }
 
-  const daily_rate = annualized_salary / 261;
-  const hourly_rate = daily_rate / 8;
+  // Store only the authoritative rate column for the chosen basis.
+  // The payroll engine derives hourly/daily equivalents using the resolved Work Policy.
+  // We do NOT hardcode divisors like 261 here — that's policy-dependent.
+  const rateColumns: Record<string, object> = {
+    Monthly: {
+      basic_salary: rate,
+      daily_rate: null,
+      weekly_rate: null,
+      hourly_rate: null,
+    },
+    Daily: {
+      basic_salary: rate,   // stored here too so NOT NULL constraint is satisfied
+      daily_rate: rate,
+      weekly_rate: null,
+      hourly_rate: null,
+    },
+    Weekly: {
+      basic_salary: rate,   // stored here too so NOT NULL constraint is satisfied
+      daily_rate: null,
+      weekly_rate: rate,
+      hourly_rate: null,
+    },
+    Hourly: {
+      basic_salary: rate,   // stored here too so NOT NULL constraint is satisfied
+      daily_rate: null,
+      weekly_rate: null,
+      hourly_rate: rate,
+    },
+  }
 
   // First, get the most recent compensation to check dates
   const { data: previousComps, error: fetchError } = await supabase
@@ -58,12 +66,12 @@ export async function addCompensationHistory(formData: FormData) {
   if (mostRecent) {
     const newDate = new Date(effective_from);
     const oldDate = new Date(mostRecent.effective_from);
-    
+
     if (newDate <= oldDate) {
       return { error: "New effective date must be strictly after the most recent compensation's effective date." }
     }
 
-    // Update the previous record's effective_to date
+    // Cap the previous record
     const effectiveToDate = new Date(newDate);
     effectiveToDate.setDate(effectiveToDate.getDate() - 1);
 
@@ -82,14 +90,13 @@ export async function addCompensationHistory(formData: FormData) {
     .from('employee_compensation_history')
     .insert({
       employee_id,
-      salary_type,
-      basic_salary,
+      salary_basis,
+      salary_type: salary_basis,  // keep in sync for backward compat
       pay_frequency,
       effective_from,
-      daily_rate: Number(daily_rate.toFixed(2)),
-      hourly_rate: Number(hourly_rate.toFixed(2)),
       working_hours_per_day: 8,
-      working_days_per_week: 5
+      working_days_per_week: 5,
+      ...rateColumns[salary_basis],
     })
 
   if (insertError) {

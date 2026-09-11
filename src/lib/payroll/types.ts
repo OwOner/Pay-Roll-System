@@ -81,9 +81,17 @@ export interface EmployeeCompensation {
   id: string;
   effective_from: string;
   effective_to: string | null;
-  salary_type: "Monthly" | "Daily" | "Weekly" | "Hourly" | string;
-  basic_salary: Decimal; // Monthly rate
-  daily_rate: Decimal;   // Calculated daily rate
+  /** The pay rate basis — what the rate number represents. */
+  salary_basis: "Monthly" | "Daily" | "Weekly" | "Hourly";
+  /** @deprecated Use salary_basis. Kept for DB backward compatibility. */
+  salary_type?: string;
+  /** Monthly salary (PHP). Authoritative when salary_basis = 'Monthly'. */
+  basic_salary: Decimal;
+  /** Daily rate (PHP). Authoritative when salary_basis = 'Daily'. */
+  daily_rate: Decimal;
+  /** Weekly rate (PHP). Authoritative when salary_basis = 'Weekly'. */
+  weekly_rate?: Decimal;
+  /** Hourly rate (PHP). Authoritative when salary_basis = 'Hourly'. */
   hourly_rate?: Decimal;
 }
 
