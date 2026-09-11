@@ -28,10 +28,8 @@ export function calculatePayroll(context: PayrollContext, activePolicy?: WorkPol
   const earnings: EarningResult[] = [];
   const deductions: DeductionResult[] = [];
 
-  const policyToUse = activePolicy || DEFAULT_WORK_POLICY;
-
   // 1. Calculate Earnings & Deductions via Multiplicative Attendance Engine
-  const attendanceResult = calculateAttendanceBasedPay(context, policyToUse);
+  const attendanceResult = calculateAttendanceBasedPay(context, activePolicy || null);
   earnings.push(...attendanceResult.earnings);
   deductions.push(...attendanceResult.deductions);
   

@@ -47,9 +47,9 @@ export interface CalculatedRates {
  */
 export function deriveHourlyRate(
   comp: EmployeeCompensation,
-  policy: WorkPolicy
+  policy: WorkPolicy | null
 ): CalculatedRates {
-  const hoursPerDay = new Decimal(policy.scheduled_hours_per_day || 8);
+  const hoursPerDay = new Decimal(policy?.scheduled_hours_per_day || 8);
 
   switch (comp.salary_basis) {
 
@@ -59,15 +59,9 @@ export function deriveHourlyRate(
           `Monthly employee has no basic salary set. Update their compensation record.`
         );
       }
-      if (!policy.annualization_factor) {
-        throw new Error(
-          `Monthly salary requires an annualization factor from the Work Policy ` +
-          `(e.g. 261 or 313 days). Assign a Work Policy to this employee or their position.`
-        );
-      }
+      const factorVal = policy?.annualization_factor || 261;
       // Equivalent Daily Rate: (monthly × 12) ÷ annualization_factor
-      // Factor comes from the resolved Work Policy — never hardcoded here.
-      const factor = new Decimal(policy.annualization_factor);
+      const factor = new Decimal(factorVal);
       const edr = comp.basic_salary.mul(12).div(factor);
       return {
         baseHourlyRate: edr.div(hoursPerDay),
@@ -94,7 +88,7 @@ export function deriveHourlyRate(
           `Weekly employee has no weekly rate set. Update their compensation record.`
         );
       }
-      const daysPerWeek = new Decimal(policy.scheduled_days_per_week || 5);
+      const daysPerWeek = new Decimal(policy?.scheduled_days_per_week || 6);
       const edr = wr.div(daysPerWeek);
       return {
         baseHourlyRate: edr.div(hoursPerDay),

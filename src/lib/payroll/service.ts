@@ -27,7 +27,7 @@ export async function loadPayrollContext(
   } else {
     // If we are strictly previewing and no period exists, we still need to look up timesheets. 
     // Timesheets are bound to a period ID. So if the period doesn't exist, we can't have timesheets!
-    throw new Error(`Payroll period not found. Timesheets must be generated and approved for this period first.`);
+    throw new Error(`Timesheet not generated. Expected Period: ${periodStart} to ${periodEnd}`);
   }
 
   const periodData = {
@@ -194,16 +194,13 @@ export async function loadPayrollContext(
     .single();
 
   if (!timesheetData) {
-    throw new Error(`No timesheet found for ${empData.first_name} ${empData.last_name} during this period.`);
+    throw new Error(`Timesheet not generated. Expected Period ID: ${payrollPeriodId}`);
   }
   if (timesheetData.status !== 'Approved') {
     throw new Error(`Timesheet for ${empData.first_name} ${empData.last_name} is ${timesheetData.status}. Must be Approved.`);
   }
   if (timesheetData.is_stale) {
     throw new Error(`Timesheet for ${empData.first_name} ${empData.last_name} is Stale. Attendance was modified after generation.`);
-  }
-  if (Number(timesheetData.missing_records_count) > 0) {
-    throw new Error(`Timesheet for ${empData.first_name} ${empData.last_name} has ${timesheetData.missing_records_count} unresolved missing records.`);
   }
 
   const timesheet = {

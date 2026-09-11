@@ -231,9 +231,9 @@ export default function RunPayrollPage() {
                   {preview.map((row) => (
                     <tr key={row.employee_id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 font-medium text-slate-900">{row.name}</td>
-                      <td className="px-6 py-4 text-right">₱{row.gross_pay.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                      <td className="px-6 py-4 text-right text-red-600">-₱{row.total_deductions.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-                      <td className="px-6 py-4 text-right font-bold text-emerald-600">₱{row.net_pay.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                      <td className="px-6 py-4 text-right">{row.gross_pay !== null ? `₱${row.gross_pay.toLocaleString(undefined, {minimumFractionDigits: 2})}` : '—'}</td>
+                      <td className="px-6 py-4 text-right text-red-600">{row.total_deductions !== null ? `-₱${row.total_deductions.toLocaleString(undefined, {minimumFractionDigits: 2})}` : '—'}</td>
+                      <td className="px-6 py-4 text-right font-bold text-emerald-600">{row.net_pay !== null ? `₱${row.net_pay.toLocaleString(undefined, {minimumFractionDigits: 2})}` : '—'}</td>
                       <td className="px-6 py-4 text-center text-slate-500">
                         {row.status === 'Ready' ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Ready</span>
@@ -281,9 +281,21 @@ export default function RunPayrollPage() {
                                         <span className="text-slate-500">{label}</span>
                                         <span className="font-medium text-slate-800">{String(value)}</span>
                                       </div>
-                                    ))}
-                                  </div>
-                                )}
+                                      ))}
+                                      {row.diagnostic.error_context && (
+                                        <>
+                                          <div className="flex justify-between text-xs mt-2 pt-2 border-t border-slate-200">
+                                            <span className="text-red-500 font-semibold">Error Context</span>
+                                            <span className="font-medium text-slate-800 text-right">{row.diagnostic.error_context}</span>
+                                          </div>
+                                          <div className="flex justify-between text-xs mt-1">
+                                            <span className="text-amber-600 font-semibold">Resolution</span>
+                                            <span className="font-medium text-slate-800 text-right">{row.diagnostic.resolution}</span>
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
                                 {/* Error/Warning message */}
                                 {row.status !== 'Ready' && (
                                   <div className={`rounded-lg p-3 text-sm ${

@@ -115,11 +115,14 @@ export async function previewPayrollRun(formData: FormData) {
       previewResults.push({
         employee_id: emp.id,
         name: `${emp.first_name} ${emp.last_name}`,
-        gross_pay: 0,
-        total_deductions: 0,
-        net_pay: 0,
+        gross_pay: null,
+        total_deductions: null,
+        net_pay: null,
         status: `Error: ${err.message}`,
-        diagnostic: null,
+        diagnostic: {
+          error_context: `Failed to calculate payroll for ${emp.first_name} ${emp.last_name}`,
+          resolution: err.message.includes('Timesheet') ? 'Generate timesheets in the Attendance tab.' : 'Review employee compensation settings.'
+        },
         earnings: [],
         deductions: []
       });

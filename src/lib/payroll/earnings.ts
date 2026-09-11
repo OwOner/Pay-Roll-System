@@ -30,7 +30,7 @@ export function getActiveCompensation(
  */
 export function calculateAttendanceBasedPay(
   context: PayrollContext,
-  policy: WorkPolicy
+  policy: WorkPolicy | null
 ): { earnings: EarningResult[], deductions: DeductionResult[] } {
   const earnings: EarningResult[] = [];
   const deductions: DeductionResult[] = [];
@@ -60,7 +60,7 @@ export function calculateAttendanceBasedPay(
 
     // 3. Resolve Day Rules (Statutory vs Company)
     const dayType = detail.day_type as DayType;
-    const rule = resolveDayRule(dayType, policy.custom_day_rules);
+    const rule = resolveDayRule(dayType, policy?.custom_day_rules || {});
 
     // 4. Calculate Earnings (Multiplicative Composition)
     const regularHours = new Decimal(detail.regular_hours);

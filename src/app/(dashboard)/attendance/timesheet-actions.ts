@@ -127,7 +127,7 @@ export async function generateTimesheets(payrollPeriodId: string) {
     const policy = activePolicyId ? policyMap.get(activePolicyId) : null
     const requiresApproval = policy ? policy.requires_ot_approval : true
     const scheduledHours = policy ? policy.scheduled_hours_per_day : 8.00
-    const restDays = policy ? policy.rest_days || ["Saturday", "Sunday"] : ["Saturday", "Sunday"]
+    const restDays = policy ? (policy.rest_days || []) : []
 
     // Fetch Attendance
     const { data: attendance } = await supabase
@@ -280,7 +280,6 @@ export async function approveTimesheet(timesheetId: string) {
   const { data: ts } = await supabase.from('timesheets').select('*').eq('id', timesheetId).single()
   if (!ts) return { success: false, error: 'Timesheet not found.' }
   if (ts.is_stale) return { success: false, error: 'Timesheet is stale. Please regenerate.' }
-  if (ts.missing_records_count > 0) return { success: false, error: 'Cannot approve with missing expected records.' }
 
   const { error } = await supabase.from('timesheets').update({ status: 'Approved' }).eq('id', timesheetId)
   if (error) return { success: false, error: error.message }
@@ -316,7 +315,7 @@ export async function approveAllTimesheets(payrollPeriodId: string) {
   let failed = 0
 
   for (const ts of drafts) {
-    if (ts.is_stale || ts.missing_records_count > 0) {
+    if (ts.is_stale) {
       failed++
       continue
     }
