@@ -103,9 +103,9 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
               {timesheets.map(ts => (
                 <TableRow key={ts.id}>
                   <TableCell className="font-medium">{ts.employees?.last_name}, {ts.employees?.first_name}</TableCell>
-                  <TableCell className="text-right">{ts.overridden_total_regular_hours ?? ts.calculated_total_regular_hours}h</TableCell>
-                  <TableCell className="text-right">{ts.overridden_total_overtime_hours ?? ts.calculated_total_overtime_hours}h</TableCell>
-                  <TableCell className="text-right text-red-600 font-semibold">{ts.overridden_absent_days ?? ts.calculated_absent_days}</TableCell>
+                  <TableCell className="text-right">{ts.overridden_total_regular_hours ?? ts.total_regular_hours ?? 0}h</TableCell>
+                  <TableCell className="text-right">{ts.overridden_total_overtime_hours ?? ts.total_recorded_ot_hours ?? 0}h</TableCell>
+                  <TableCell className="text-right text-red-600 font-semibold">{ts.overridden_absent_days ?? ts.absent_days ?? 0}</TableCell>
                   <TableCell className="text-right text-orange-600">{ts.missing_records_count}</TableCell>
                   <TableCell>
                     {ts.status === 'Approved' ? (
@@ -116,6 +116,7 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
                       <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">Draft</Badge>
                     )}
                     {ts.is_stale && <Badge variant="destructive" className="ml-2">Stale</Badge>}
+                    {ts.missing_records_count > 0 && <Badge variant="outline" className="ml-2 border-orange-500 text-orange-700 bg-orange-50" title="Missing days will be treated as 0 hours for payroll">Missing: {ts.missing_records_count}</Badge>}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" onClick={() => { setSelectedTimesheet(ts); setDrawerOpen(true); }}>

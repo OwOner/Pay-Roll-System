@@ -98,6 +98,16 @@ export default function TimesheetDetailDrawer({
             {timesheet.employees.first_name} {timesheet.employees.last_name} ({timesheet.period_start} to {timesheet.period_end})
           </SheetDescription>
         </SheetHeader>
+
+        {timesheet.missing_records_count > 0 && (
+          <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
+            <div className="text-sm text-orange-800">
+              <span className="font-semibold">{timesheet.missing_records_count} missing attendance records.</span> 
+              <br/>These days will be treated as 0 hours for payroll unless manually corrected.
+            </div>
+          </div>
+        )}
         
         <div className="py-6 space-y-6">
           <div className="grid grid-cols-2 gap-4">

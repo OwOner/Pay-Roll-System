@@ -127,7 +127,7 @@ export async function generateTimesheets(payrollPeriodId: string) {
     const policy = activePolicyId ? policyMap.get(activePolicyId) : null
     const requiresApproval = policy ? policy.requires_ot_approval : true
     const scheduledHours = policy ? policy.scheduled_hours_per_day : 8.00
-    const restDays = policy ? (policy.rest_days || []) : []
+    const restDays = policy ? (policy.rest_days || []) : ["Sunday"]
 
     // Fetch Attendance
     const { data: attendance } = await supabase
@@ -194,7 +194,7 @@ export async function generateTimesheets(payrollPeriodId: string) {
       let payableUt = 0
 
       if (rec && ['Present', 'Work From Home', 'Holiday'].includes(rec.status)) {
-         regularHours = rec.regular_hours || 0
+         regularHours = (rec.regular_hours != null && rec.regular_hours > 0) ? rec.regular_hours : scheduledHours
          if (regularHours > scheduledHours) regularHours = scheduledHours // enforce constraint
          
          recordedOt = rec.overtime_hours || 0

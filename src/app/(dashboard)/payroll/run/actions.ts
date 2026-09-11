@@ -112,16 +112,20 @@ export async function previewPayrollRun(formData: FormData) {
         }))
       });
     } catch (err: any) {
+      const isMissingAttendanceWarning = err.message.includes('No worked attendance found for this period');
+      
       previewResults.push({
         employee_id: emp.id,
         name: `${emp.first_name} ${emp.last_name}`,
         gross_pay: null,
         total_deductions: null,
         net_pay: null,
-        status: `Error: ${err.message}`,
+        status: isMissingAttendanceWarning ? `Warning: ${err.message}` : `Error: ${err.message}`,
         diagnostic: {
-          error_context: `Failed to calculate payroll for ${emp.first_name} ${emp.last_name}`,
-          resolution: err.message.includes('Timesheet') ? 'Generate timesheets in the Attendance tab.' : 'Review employee compensation settings.'
+          error_context: isMissingAttendanceWarning ? `Missing Attendance Data` : `Failed to calculate payroll for ${emp.first_name} ${emp.last_name}`,
+          resolution: err.message.includes('Timesheet') ? 'Generate timesheets in the Attendance tab.' : 
+                      isMissingAttendanceWarning ? 'Import attendance records or manually mark days as Absent/Leave.' :
+                      'Review employee compensation settings.'
         },
         earnings: [],
         deductions: []

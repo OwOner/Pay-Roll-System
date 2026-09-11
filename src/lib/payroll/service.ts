@@ -203,6 +203,19 @@ export async function loadPayrollContext(
     throw new Error(`Timesheet for ${empData.first_name} ${empData.last_name} is Stale. Attendance was modified after generation.`);
   }
 
+  const expectedWorkDays = timesheetData.timesheet_details?.filter((d: any) => 
+    !d.day_type.includes('Rest Day') && !d.day_type.includes('Holiday')
+  ).length || 0;
+
+  if (
+    expectedWorkDays > 0 && 
+    Number(timesheetData.missing_records_count) === expectedWorkDays &&
+    Number(timesheetData.total_regular_hours) === 0 &&
+    Number(timesheetData.absent_days) === 0
+  ) {
+    throw new Error(`No worked attendance found for this period.`);
+  }
+
   const timesheet = {
     id: timesheetData.id,
     employee_id: timesheetData.employee_id,

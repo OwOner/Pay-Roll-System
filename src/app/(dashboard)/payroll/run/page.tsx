@@ -276,7 +276,7 @@ export default function RunPayrollPage() {
                                       ['Approved Regular Hrs', row.diagnostic.approved_reg_hrs],
                                       ['Approved OT Hrs', row.diagnostic.approved_ot_hrs],
                                       ['Approved UT Hrs', row.diagnostic.approved_ut_hrs],
-                                    ].map(([label, value]) => (
+                                    ].filter(([_, value]) => value !== undefined).map(([label, value]) => (
                                       <div key={label as string} className="flex justify-between text-xs">
                                         <span className="text-slate-500">{label}</span>
                                         <span className="font-medium text-slate-800">{String(value)}</span>
