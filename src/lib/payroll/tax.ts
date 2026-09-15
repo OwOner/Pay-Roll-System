@@ -13,38 +13,42 @@ export function calculateWithholdingTax(
   const taxConfig = context.taxConfig;
   const payFrequency = context.period.pay_frequency;
 
-  if (!taxConfig || context.statutoryApplicability?.tax === false) {
-    return []; // No active tax configuration or MWE/tax-exempt, assume 0 tax
+  if (context.statutoryApplicability?.tax === false) {
+    return []; // Explicitly marked as not applicable by HR configuration
+  }
+
+  if (!taxConfig) {
+    throw new Error("Missing Tax Configuration: No active tax table found for the payroll period.");
+  }
+
+  if (!taxConfig.brackets || taxConfig.brackets.length === 0) {
+    throw new Error(`Invalid Tax Configuration: No tax brackets defined in table '${taxConfig.name}'.`);
   }
 
   // Filter brackets for the applicable pay frequency
   const applicableBrackets = taxConfig.brackets
     .filter(b => b.pay_frequency === payFrequency)
-    .sort((a, b) => a.minimum_income.comparedTo(b.minimum_income));
+    .sort((a, b) => b.minimum_income.comparedTo(a.minimum_income)); // Sort DESCENDING
 
   if (applicableBrackets.length === 0) {
-    // If no tax brackets are defined for this frequency, assume 0 tax
-    // (Useful for testing before tax tables are fully populated)
-    return [];
+    throw new Error(`Missing Tax Configuration: No tax brackets found for pay frequency '${payFrequency}' in table '${taxConfig.name}'.`);
   }
 
-  // Find the correct bracket
-  let selectedBracket = applicableBrackets[0];
-  for (const bracket of applicableBrackets) {
-    const min = bracket.minimum_income;
-    const max = bracket.maximum_income;
+  // Ensure precision
+  const roundedCompensation = taxableCompensation.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
 
-    if (taxableCompensation.greaterThanOrEqualTo(min) && (max === null || taxableCompensation.lessThanOrEqualTo(max))) {
-      selectedBracket = bracket;
-      break; // Found the highest applicable bracket
-    }
+  // Find the correct bracket (First bracket where compensation >= minimum_income)
+  const selectedBracket = applicableBrackets.find(b => roundedCompensation.greaterThanOrEqualTo(b.minimum_income));
+
+  if (!selectedBracket) {
+    throw new Error(`Invalid Tax Configuration: Could not resolve a tax bracket for compensation ${roundedCompensation.toString()}. The lowest bracket must have a minimum_income of 0.`);
   }
 
   // Formula: Base Tax + ((Taxable Compensation - Minimum Income) * Excess Rate)
   let withholdingTax = new Decimal(0);
   
   if (selectedBracket.excess_rate.greaterThan(0)) {
-    const excessIncome = taxableCompensation.sub(selectedBracket.minimum_income);
+    const excessIncome = roundedCompensation.sub(selectedBracket.minimum_income);
     const excessTax = excessIncome.mul(selectedBracket.excess_rate);
     withholdingTax = selectedBracket.base_tax.plus(excessTax);
   } else {

@@ -184,7 +184,7 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
                             <td className="px-6 py-4 text-right font-bold text-emerald-600">
                               ₱{Number(item.net_pay).toLocaleString(undefined, {minimumFractionDigits: 2})}
                             </td>
-                            <td className="px-6 py-4 text-center">
+                            <td className="px-6 py-4 text-center flex items-center justify-center gap-2">
                               <Dialog>
                                 <DialogTrigger className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                                   <Eye className="w-3.5 h-3.5" />
@@ -238,6 +238,14 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
                                   </div>
                                 </DialogContent>
                               </Dialog>
+                              <Link 
+                                href={`/payroll/${run.id}/payslips/${item.id}`}
+                                target="_blank"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                Payslip
+                              </Link>
                             </td>
                           </tr>
                         ))

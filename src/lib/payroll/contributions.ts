@@ -12,7 +12,7 @@ export function calculateSSS(
   const sssConfig = context.sssConfig;
   const deductions: DeductionResult[] = [];
 
-  if (!context.statutoryApplicability.sss) {
+  if (!context.statutoryApplicability?.sss) {
     deductions.push({
       type: 'SSS',
       description: 'SSS (Not Applicable)',
@@ -53,6 +53,7 @@ export function calculateSSS(
         description: "SSS Regular Contribution",
         amount: applicableBracket.regular_ss_employee,
         employer_amount: applicableBracket.regular_ss_employer,
+        is_pre_tax: true,
         source: "system_calc",
         source_id: sssConfig.id
       });
@@ -65,6 +66,7 @@ export function calculateSSS(
         description: "SSS WISP (MPF)",
         amount: applicableBracket.mpf_employee,
         employer_amount: applicableBracket.mpf_employer,
+        is_pre_tax: true,
         source: "system_calc",
         source_id: sssConfig.id
       });
@@ -77,6 +79,7 @@ export function calculateSSS(
         description: "SSS EC (Employer Paid)",
         amount: new Decimal(0), // Employee pays 0
         employer_amount: applicableBracket.ec_employer,
+        is_pre_tax: false, // Employer only, doesn't reduce employee tax
         source: "system_calc",
         source_id: sssConfig.id
       });
@@ -98,7 +101,7 @@ export function calculatePhilHealth(
   const config = context.philhealthConfig;
   const deductions: DeductionResult[] = [];
 
-  if (!context.statutoryApplicability.philhealth) {
+  if (!context.statutoryApplicability?.philhealth) {
     deductions.push({
       type: 'PhilHealth',
       description: 'PhilHealth (Not Applicable)',
@@ -138,6 +141,7 @@ export function calculatePhilHealth(
       description: "PhilHealth Premium",
       amount: employeeShare,
       employer_amount: employerShare,
+      is_pre_tax: true,
       source: "system_calc",
       source_id: config.id
     });
@@ -156,7 +160,7 @@ export function calculatePagIBIG(
   const config = context.pagibigConfig;
   const deductions: DeductionResult[] = [];
 
-  if (!context.statutoryApplicability.pagibig) {
+  if (!context.statutoryApplicability?.pagibig) {
     deductions.push({
       type: 'Pag-IBIG',
       description: 'Pag-IBIG (Not Applicable)',
@@ -196,6 +200,7 @@ export function calculatePagIBIG(
       description: "Pag-IBIG Contribution",
       amount: employeeShare,
       employer_amount: employerShare,
+      is_pre_tax: true,
       source: "system_calc",
       source_id: config.id
     });

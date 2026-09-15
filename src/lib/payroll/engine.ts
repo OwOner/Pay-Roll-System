@@ -36,7 +36,9 @@ export function calculatePayroll(context: PayrollContext, activePolicy?: WorkPol
   
   // (In a real system, we also calculate Paid Leave here if not fully embedded in attendanceResult)
   
-  earnings.push(...calculateAdjustments(context));
+  const adjResult = calculateAdjustments(context);
+  earnings.push(...adjResult.earnings);
+  deductions.push(...adjResult.deductions);
 
   let grossPay = new Decimal(0);
   let totalTaxableEarnings = new Decimal(0);
@@ -155,7 +157,7 @@ export function calculatePayroll(context: PayrollContext, activePolicy?: WorkPol
   applyAllocation(rawPagIBIG, context.statutoryAllocation?.pagibig_percentage, context.cumulativeStatutoryDeductions?.pagibig);
 
   // 3. Compute Taxable Compensation
-  // Taxable Comp = Taxable Earnings - Mandatory Employee Contributions (SSS, PhilHealth, Pag-IBIG)
+  // Taxable Comp = Taxable Earnings - Mandatory Pre-Tax Employee Contributions (SSS, PhilHealth, Pag-IBIG)
   let mandatoryContributions = new Decimal(0);
   let sssEmployee = new Decimal(0);
   let sssEmployer = new Decimal(0);
@@ -167,7 +169,6 @@ export function calculatePayroll(context: PayrollContext, activePolicy?: WorkPol
 
   for (const ded of deductions) {
     if (ded.type === "SSS") {
-      mandatoryContributions = mandatoryContributions.plus(ded.amount);
       sssEmployee = sssEmployee.plus(ded.amount);
       if (ded.employer_amount) {
         if (ded.description.includes("EC")) {
@@ -177,13 +178,16 @@ export function calculatePayroll(context: PayrollContext, activePolicy?: WorkPol
         }
       }
     } else if (ded.type === "PhilHealth") {
-      mandatoryContributions = mandatoryContributions.plus(ded.amount);
       philhealthEmployee = philhealthEmployee.plus(ded.amount);
       if (ded.employer_amount) philhealthEmployer = philhealthEmployer.plus(ded.employer_amount);
     } else if (ded.type === "Pag-IBIG") {
-      mandatoryContributions = mandatoryContributions.plus(ded.amount);
       pagibigEmployee = pagibigEmployee.plus(ded.amount);
       if (ded.employer_amount) pagibigEmployer = pagibigEmployer.plus(ded.employer_amount);
+    }
+
+    // Explicitly subtract ONLY marked pre-tax mandatory statutory contributions from taxable compensation
+    if (ded.is_pre_tax && ["SSS", "PhilHealth", "Pag-IBIG"].includes(ded.type)) {
+      mandatoryContributions = mandatoryContributions.plus(ded.amount);
     }
   }
 

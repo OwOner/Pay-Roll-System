@@ -160,8 +160,9 @@ export function calculateAttendanceBasedPay(
 }
 
 
-export function calculateAdjustments(context: PayrollContext): EarningResult[] {
+export function calculateAdjustments(context: PayrollContext): { earnings: EarningResult[], deductions: DeductionResult[] } {
   const earnings: EarningResult[] = [];
+  const deductions: DeductionResult[] = [];
   
   for (const adj of context.adjustments) {
     if (adj.type === "Earning") {
@@ -173,11 +174,23 @@ export function calculateAdjustments(context: PayrollContext): EarningResult[] {
         is_sss_covered: adj.is_taxable ?? true, 
         is_philhealth_covered: false, 
         is_pagibig_covered: adj.is_taxable ?? true,
-        source: "adjustment",
+        source: "payroll_adjustments",
+        source_id: adj.id
+      });
+    } else if (adj.type === "Deduction") {
+      deductions.push({
+        type: "Other",
+        description: adj.description,
+        amount: adj.amount,
+        is_pre_tax: false, // by default, adjustments are post-tax unless specified
+        is_sss_deductible: false,
+        is_philhealth_deductible: false,
+        is_pagibig_deductible: false,
+        source: "payroll_adjustments",
         source_id: adj.id
       });
     }
   }
 
-  return earnings;
+  return { earnings, deductions };
 }

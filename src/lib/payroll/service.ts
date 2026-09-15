@@ -363,6 +363,21 @@ export async function loadPayrollContext(
     }
   }
 
+  // Fetch Approved Payroll Adjustments (Phase 6C)
+  const { data: dbAdjustments } = await supabase
+    .from('payroll_adjustments')
+    .select('*')
+    .eq('employee_id', employeeId)
+    .eq('status', 'Approved');
+
+  const adjustments = dbAdjustments?.map((adj: any) => ({
+    id: adj.id,
+    type: adj.adjustment_type as "Earning" | "Deduction",
+    description: `Adjustment: ${adj.description}`, // e.g. "Adjustment: Hours Correction"
+    amount: new Decimal(adj.amount),
+    is_taxable: true // Default adjustments to taxable unless specified otherwise in the future
+  })) || [];
+
   return {
     employee: empData,
     period: periodData,
@@ -370,7 +385,7 @@ export async function loadPayrollContext(
     timesheet: timesheet,
     leaves: [],
     holidays: [],
-    adjustments: [], // No manual adjustments initially
+    adjustments: adjustments, // Injected manual adjustments
     overrides: [],
     cashAdvances,
     taxConfig,

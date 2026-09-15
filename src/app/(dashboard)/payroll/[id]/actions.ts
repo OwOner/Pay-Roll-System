@@ -110,7 +110,7 @@ export async function rejectPayrollRun(payrollRunId: string, reason: string) {
   return { success: true }
 }
 
-export async function markPayrollPaid(payrollRunId: string) {
+export async function markPayrollPaid(payrollRunId: string, paymentReference?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -184,7 +184,8 @@ export async function markPayrollPaid(payrollRunId: string) {
   const { error } = await supabase
     .from('payroll_runs')
     .update({ 
-      status: 'Paid'
+      status: 'Paid',
+      paid_at: new Date().toISOString()
     })
     .eq('id', payrollRunId)
 
@@ -197,7 +198,8 @@ export async function markPayrollPaid(payrollRunId: string) {
       payroll_run_id: payrollRunId,
       status: 'Paid',
       changed_by: user?.id,
-      reason: 'Marked as disbursed to employees'
+      reason: 'Marked as disbursed to employees',
+      payment_reference: paymentReference || null
     })
 
   // 5. Insert Audit Log

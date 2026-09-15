@@ -56,13 +56,47 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
     setShowReject(false)
   }
 
-  async function handlePaid() {
+  const [showPaid, setShowPaid] = useState(false)
+
+  async function handlePaid(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setLoading(true)
-    await markPayrollPaid(runId)
+    const data = new FormData(e.currentTarget)
+    const ref = data.get('reference') as string
+    await markPayrollPaid(runId, ref)
     setLoading(false)
+    setShowPaid(false)
   }
 
   if (status === 'Approved') {
+    if (showPaid) {
+      return (
+        <form onSubmit={handlePaid} className="flex items-center gap-2 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+          <input 
+            type="text" 
+            name="reference" 
+            placeholder="Payment Reference (optional)" 
+            className="p-2 text-sm border border-emerald-300 rounded-lg w-64"
+            autoFocus
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {loading ? "..." : "Confirm Payment"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPaid(false)}
+            className="bg-white text-emerald-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-100"
+          >
+            Cancel
+          </button>
+        </form>
+      )
+    }
+
     return (
       <div className="flex gap-3">
         <Link
@@ -81,7 +115,7 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
           Export CSV
         </a>
         <button
-          onClick={handlePaid}
+          onClick={() => setShowPaid(true)}
           disabled={loading}
           className="inline-flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
         >

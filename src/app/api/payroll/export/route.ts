@@ -47,30 +47,42 @@ export async function GET(request: Request) {
 
   // Required Columns
   const headers = [
-    "Employee",
+    "Employee Name",
     "Employee ID",
-    "Department",
-    "Position",
-    "Pay Period",
+    "Days Worked",
     "Basic Pay",
-    "Regular Hours",
-    "OT Hours",
     "OT Pay",
-    "Undertime Hours",
-    "Night Differential",
-    "Holiday/Rest-Day Pay",
+    "ND Pay",
+    "Holiday Pay",
+    "Non-Taxable Earnings",
     "Gross Pay",
     "SSS",
     "PhilHealth",
     "Pag-IBIG",
     "Withholding Tax",
     "Cash Advance Deduction",
-    "Other Deductions",
-    "Net Pay",
-    "Payment Status"
+    "Total Deductions",
+    "Net Pay"
   ]
 
   let csv = headers.join(',') + '\n'
+
+  const totals = {
+    daysWorked: 0,
+    basicPay: 0,
+    otPay: 0,
+    ndPay: 0,
+    holidayPay: 0,
+    nonTaxable: 0,
+    grossPay: 0,
+    sss: 0,
+    philhealth: 0,
+    pagibig: 0,
+    withholdingTax: 0,
+    cashAdvance: 0,
+    totalDeductions: 0,
+    netPay: 0
+  }
 
   for (const item of items || []) {
     const emp = item.employees as any
@@ -79,12 +91,20 @@ export async function GET(request: Request) {
     const deductions = item.payroll_deductions || []
     const timesheet = timesheets?.find(t => t.employee_id === emp.id)
 
+    const daysWorked = timesheet ? Number(timesheet.total_regular_hours || 0) / 8 : 0
+
     let basicPay = 0
     let otPay = 0
     let ndPay = 0
     let holidayPay = 0
+    let nonTaxable = 0
 
     for (const e of earnings) {
+      if (!e.is_taxable) {
+        nonTaxable += Number(e.amount)
+        continue // Already counted as non-taxable, but if it is basic/ot it shouldn't overlap usually. Wait, MWE exempt is non-taxable.
+      }
+      
       const desc = (e.description || '').toLowerCase()
       if (desc.includes('basic') || desc.includes('regular pay')) basicPay += Number(e.amount)
       else if (desc.includes('overtime') || desc.includes('ot')) otPay += Number(e.amount)
@@ -92,52 +112,97 @@ export async function GET(request: Request) {
       else if (desc.includes('holiday') || desc.includes('rest day')) holidayPay += Number(e.amount)
     }
 
+    // Add MWE exempt earnings back to the specific buckets if they are not taxable
+    for (const e of earnings) {
+      if (!e.is_taxable && e.tax_treatment === 'mwe_exempt') {
+         const desc = (e.description || '').toLowerCase()
+         if (desc.includes('basic') || desc.includes('regular pay')) basicPay += Number(e.amount)
+         else if (desc.includes('overtime') || desc.includes('ot')) otPay += Number(e.amount)
+         else if (desc.includes('night') || desc.includes('nd')) ndPay += Number(e.amount)
+         else if (desc.includes('holiday') || desc.includes('rest day')) holidayPay += Number(e.amount)
+      }
+    }
+
     let sss = 0
     let philhealth = 0
     let pagibig = 0
     let cashAdvance = 0
-    let otherDeds = 0
-    let withholdingTax = Number(item.withholding_tax)
+    // withholdingTax might be stored as an item field or deduction
+    let withholdingTax = deductions.find((d: any) => d.type === 'Tax')?.amount || 0
+    withholdingTax = Number(withholdingTax)
 
     for (const d of deductions) {
-      const desc = (d.description || '').toLowerCase()
       const type = (d.type || '').toLowerCase()
       const source = (d.source || '')
       
-      if (desc === 'sss' || type === 'sss') sss += Number(d.amount)
-      else if (desc === 'philhealth' || type === 'philhealth') philhealth += Number(d.amount)
-      else if (desc === 'pag-ibig' || desc === 'pagibig' || type === 'pag-ibig') pagibig += Number(d.amount)
+      if (type === 'sss' || d.description?.toLowerCase().includes('sss')) sss += Number(d.amount)
+      else if (type === 'philhealth' || d.description?.toLowerCase().includes('philhealth')) philhealth += Number(d.amount)
+      else if (type === 'pag-ibig' || d.description?.toLowerCase().includes('pag-ibig')) pagibig += Number(d.amount)
       else if (source === 'Cash Advance') cashAdvance += Number(d.amount)
-      else if (desc === 'withholding tax' || type === 'withholding tax') { /* Already covered by item.withholding_tax but just in case */ }
-      else otherDeds += Number(d.amount)
     }
+
+    const totalDeductions = Number(item.total_deductions)
+    const grossPay = Number(item.gross_pay)
+    const netPay = Number(item.net_pay)
+
+    // Accumulate totals
+    totals.daysWorked += daysWorked
+    totals.basicPay += basicPay
+    totals.otPay += otPay
+    totals.ndPay += ndPay
+    totals.holidayPay += holidayPay
+    totals.nonTaxable += nonTaxable
+    totals.grossPay += grossPay
+    totals.sss += sss
+    totals.philhealth += philhealth
+    totals.pagibig += pagibig
+    totals.withholdingTax += withholdingTax
+    totals.cashAdvance += cashAdvance
+    totals.totalDeductions += totalDeductions
+    totals.netPay += netPay
 
     const row = [
       fullName,
       emp?.employee_code || '',
-      emp?.departments?.name || '',
-      emp?.positions?.title || '',
-      payPeriod,
+      daysWorked.toFixed(2),
       basicPay.toFixed(2),
-      timesheet ? Number(timesheet.total_regular_hours || 0).toFixed(2) : '0.00',
-      timesheet ? Number(timesheet.total_payable_ot_hours || 0).toFixed(2) : '0.00',
       otPay.toFixed(2),
-      timesheet ? Number(timesheet.total_payable_ut_hours || 0).toFixed(2) : '0.00',
       ndPay.toFixed(2),
       holidayPay.toFixed(2),
-      Number(item.gross_pay).toFixed(2),
+      nonTaxable.toFixed(2),
+      grossPay.toFixed(2),
       sss.toFixed(2),
       philhealth.toFixed(2),
       pagibig.toFixed(2),
       withholdingTax.toFixed(2),
       cashAdvance.toFixed(2),
-      otherDeds.toFixed(2),
-      Number(item.net_pay).toFixed(2),
-      run.status
+      totalDeductions.toFixed(2),
+      netPay.toFixed(2)
     ]
 
     csv += row.map(v => `"${v}"`).join(',') + '\n'
   }
+
+  // Summary Row
+  const summaryRow = [
+    "TOTAL",
+    "",
+    totals.daysWorked.toFixed(2),
+    totals.basicPay.toFixed(2),
+    totals.otPay.toFixed(2),
+    totals.ndPay.toFixed(2),
+    totals.holidayPay.toFixed(2),
+    totals.nonTaxable.toFixed(2),
+    totals.grossPay.toFixed(2),
+    totals.sss.toFixed(2),
+    totals.philhealth.toFixed(2),
+    totals.pagibig.toFixed(2),
+    totals.withholdingTax.toFixed(2),
+    totals.cashAdvance.toFixed(2),
+    totals.totalDeductions.toFixed(2),
+    totals.netPay.toFixed(2)
+  ]
+  csv += summaryRow.map(v => `"${v}"`).join(',') + '\n'
 
   return new NextResponse(csv, {
     status: 200,
