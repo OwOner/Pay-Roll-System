@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+} from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import DiagnosticsTab from "./diagnostics-tab"
 
@@ -115,8 +116,21 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
           </div>
         </div>
 
-        <PayrollActions runId={run.id} status={run.status} />
+        <PayrollActions 
+          runId={run.id} 
+          status={run.status} 
+          periodId={payrollRun.payroll_period_id} 
+        />
       </div>
+
+      <StatutoryWarningBlock 
+        runId={run.id} 
+        periodId={payrollRun.payroll_period_id} 
+        frequency={payrollRun.payroll_periods.pay_frequency} 
+        periodStart={payrollRun.payroll_periods.period_start}
+        periodEnd={payrollRun.payroll_periods.period_end}
+      />
+
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-6">

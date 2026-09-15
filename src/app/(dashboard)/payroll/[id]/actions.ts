@@ -259,3 +259,106 @@ export async function deleteDraft(payrollRunId: string) {
 
   return { success: true }
 }
+
+export async function checkStatutoryConfiguration(payrollRunId: string) {
+  const supabase = await createClient()
+  
+  // 1. Get the payroll run and period
+  const { data: run } = await supabase
+    .from('payroll_runs')
+    .select(`
+      payroll_period_id,
+      payroll_periods (
+        id,
+        statutory_configuration_status,
+        statutory_schedule_id,
+        period_start,
+        period_end,
+        pay_frequency
+      )
+    `)
+    .eq('id', payrollRunId)
+    .single()
+
+  if (!run || !run.payroll_periods) return { success: false, error: 'Run not found' }
+  const period = run.payroll_periods as any
+
+  if (period.statutory_configuration_status !== 'Pending') {
+    return { success: true, pending: false, status: period.statutory_configuration_status }
+  }
+
+  // 2. Fetch employees in this run
+  const { data: items } = await supabase
+    .from('payroll_items')
+    .select('employee_id')
+    .eq('payroll_run_id', payrollRunId)
+
+  if (!items || items.length === 0) return { success: true, pending: false, status: period.statutory_configuration_status }
+
+  const employeeIds = items.map(i => i.employee_id)
+
+  // 3. Check their statutory profiles
+  const { data: profiles } = await supabase
+    .from('employee_statutory_profiles')
+    .select('*')
+    .in('employee_id', employeeIds)
+    
+  let sssCount = 0
+  let phicCount = 0
+  let hdmfCount = 0
+
+  if (profiles) {
+    for (const empId of employeeIds) {
+      const empProfiles = profiles.filter((p: any) => p.employee_id === empId)
+      const effective = empProfiles.find((p: any) => !p.effective_to || new Date(p.effective_to) >= new Date(period.period_start))
+      if (effective) {
+        if (effective.sss_applicable) sssCount++
+        if (effective.philhealth_applicable) phicCount++
+        if (effective.pagibig_applicable) hdmfCount++
+      }
+    }
+  }
+
+  const eligibleEmployeesCount = Math.max(sssCount, phicCount, hdmfCount)
+  const hasEligible = eligibleEmployeesCount > 0
+
+  if (!hasEligible) {
+    // Automatically mark as 'Not Required'
+    await supabase.from('payroll_periods').update({ statutory_configuration_status: 'Not Required' }).eq('id', period.id)
+    return { success: true, pending: false, status: 'Not Required' }
+  }
+
+  return {
+    success: true,
+    pending: true,
+    status: 'Pending',
+    eligibleEmployeesCount,
+    breakdown: { sss: sssCount, philhealth: phicCount, pagibig: hdmfCount },
+    period: period
+  }
+}
+
+export async function setStatutoryConfigurationStatus(periodId: string, status: string, reason?: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { error } = await supabase
+    .from('payroll_periods')
+    .update({ statutory_configuration_status: status })
+    .eq('id', periodId)
+
+  if (error) return { success: false, error: error.message }
+
+  // If skipped intentionally, record in audit logs
+  if (status === 'Intentionally Skipped' && reason) {
+    await supabase.from('audit_logs').insert({
+      user_id: user?.id,
+      action: 'STATUTORY_SKIPPED',
+      entity_type: 'payroll_periods',
+      entity_id: periodId,
+      reason: `Intentionally skipped statutory deductions. Reason: ${reason}`
+    })
+  }
+
+  return { success: true }
+}

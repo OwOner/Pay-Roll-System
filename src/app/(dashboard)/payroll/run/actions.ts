@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { loadPayrollContext } from "@/lib/payroll/service"
 import { calculatePayroll } from "@/lib/payroll/engine"
-import { getOrCreatePayrollPeriod } from "@/app/(dashboard)/attendance/timesheet-actions"
+import { getPayrollPeriod, createPayrollPeriod } from "@/app/(dashboard)/attendance/timesheet-actions"
 
 export async function previewPayrollRun(formData: FormData) {
   const supabase = await createClient()
@@ -26,7 +26,12 @@ export async function previewPayrollRun(formData: FormData) {
   // Get or Create the authoritative period ID
   let periodId: string;
   try {
-    const period = await getOrCreatePayrollPeriod(start, end, freq);
+    let period = await getPayrollPeriod(start, end, freq);
+    if (!period) {
+      const res = await createPayrollPeriod({ period_start: start, period_end: end, pay_frequency: freq });
+      if (!res.success) throw new Error(res.error);
+      period = res.period;
+    }
     periodId = period.id;
   } catch (err: any) {
     return { error: `Failed to resolve payroll period: ${err.message}` };
@@ -150,7 +155,12 @@ export async function submitPayrollRun(formData: FormData, status: 'Draft' | 'Pe
   // 1. Get or Create Period
   let period;
   try {
-    period = await getOrCreatePayrollPeriod(start, end, freq);
+    period = await getPayrollPeriod(start, end, freq);
+    if (!period) {
+      const res = await createPayrollPeriod({ period_start: start, period_end: end, pay_frequency: freq });
+      if (!res.success) throw new Error(res.error);
+      period = res.period;
+    }
   } catch (err: any) {
     return { error: `Failed to resolve payroll period: ${err.message}` };
   }

@@ -19,13 +19,10 @@ export async function getPayrollPeriod(periodStart: string, periodEnd: string, p
   return existing || null
 }
 
-export async function createPayrollPeriodWithConfig(data: {
+export async function createPayrollPeriod(data: {
   period_start: string
   period_end: string
   pay_frequency: string
-  statutory_schedule_id: string
-  period_sequence: number
-  contribution_month: string
 }) {
   const supabase = await createClient()
 
@@ -36,9 +33,7 @@ export async function createPayrollPeriodWithConfig(data: {
       period_end: data.period_end,
       pay_frequency: data.pay_frequency,
       pay_date: data.period_end, // default
-      statutory_schedule_id: data.statutory_schedule_id,
-      period_sequence: data.period_sequence,
-      contribution_month: data.contribution_month
+      statutory_configuration_status: 'Pending'
     })
     .select()
     .single()

@@ -7,10 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, CheckCircle2, Play, Settings2, Settings } from "lucide-react"
-import { fetchTimesheets, generateTimesheets, approveAllTimesheets, getPayrollPeriod, createPayrollPeriodWithConfig, updatePayrollPeriodConfig } from "./timesheet-actions"
+import { AlertCircle, CheckCircle2, Play, Settings2 } from "lucide-react"
+import { fetchTimesheets, generateTimesheets, approveAllTimesheets, getPayrollPeriod, createPayrollPeriod } from "./timesheet-actions"
 import TimesheetDetailDrawer from "./timesheet-detail-drawer"
-import PayrollPeriodConfigModal from "./components/payroll-period-config-modal"
 
 export default function TimesheetClient({ initialStartDate, initialEndDate }: { initialStartDate?: string, initialEndDate?: string }) {
   const [startDate, setStartDate] = useState(initialStartDate || "2026-09-01")
@@ -23,7 +22,7 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
   
   const [selectedTimesheet, setSelectedTimesheet] = useState<any>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [configModalOpen, setConfigModalOpen] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   const loadData = async () => {
     setIsLoading(true)
@@ -48,13 +47,24 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
   }, [startDate, endDate, frequency])
 
   const handleGenerate = async () => {
-    if (!period || !period.statutory_schedule_id) {
-      setConfigModalOpen(true)
-      return
+    setIsLoading(true)
+    setShowConfirm(false)
+    let currentPeriodId = period?.id
+    if (!currentPeriodId) {
+      const p = await createPayrollPeriod({
+        period_start: startDate,
+        period_end: endDate,
+        pay_frequency: frequency
+      })
+      if (!p.success) {
+        alert(p.error)
+        setIsLoading(false)
+        return
+      }
+      currentPeriodId = p.period.id
     }
     
-    setIsLoading(true)
-    const res = await generateTimesheets(period.id)
+    const res = await generateTimesheets(currentPeriodId)
     if (res && res.message) alert(res.message)
     await loadData()
   }
@@ -68,33 +78,23 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
     await loadData()
   }
 
-  const handleSaveConfig = async (config: any) => {
-    if (period) {
-      const res = await updatePayrollPeriodConfig(period.id, config)
-      if (!res.success) throw new Error(res.error)
-      // Automatically generate timesheets after config if they just configured an existing unconfigured period
-      const shouldGenerate = !period.statutory_schedule_id && timesheets.length === 0
-      await loadData()
-      if (shouldGenerate) {
-        await generateTimesheets(period.id)
-        await loadData()
-      }
-    } else {
-      const res = await createPayrollPeriodWithConfig({
-        period_start: startDate,
-        period_end: endDate,
-        pay_frequency: frequency,
-        ...config
-      })
-      if (!res.success) throw new Error(res.error)
-      // Automatically generate timesheets after creation
-      await generateTimesheets(res.period.id)
-      await loadData()
-    }
-  }
-
   return (
     <div className="space-y-4">
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 mx-4">
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Generate Timesheets</h3>
+            <p className="text-slate-600 mb-6">
+              We'll summarize the attendance records for <strong>{startDate}</strong> to <strong>{endDate}</strong> into payroll timesheets. This will not calculate payroll yet.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancel</Button>
+              <Button onClick={handleGenerate} className="bg-blue-600 hover:bg-blue-700">Generate Timesheets</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
@@ -112,12 +112,7 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
             <Button onClick={loadData} variant="secondary">Load</Button>
           </div>
           <div className="flex items-center gap-2">
-            {period && (
-               <Button onClick={() => setConfigModalOpen(true)} variant="outline" className="border-slate-200">
-                 <Settings className="h-4 w-4 mr-2" /> Config
-               </Button>
-            )}
-            <Button onClick={handleGenerate} variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100">
+            <Button onClick={() => setShowConfirm(true)} variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100">
               <Play className="h-4 w-4 mr-2" /> Generate Timesheets
             </Button>
             <Button onClick={handleApproveAll} variant="default" className="bg-green-600 hover:bg-green-700">
@@ -167,7 +162,7 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
               {timesheets.length === 0 && !isLoading && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    {!period ? "Payroll period does not exist yet. Click Generate Timesheets to configure it." : "No timesheets generated for this period."}
+                    {!period ? "Payroll period does not exist yet. Click Generate Timesheets to initialize it." : "No timesheets generated for this period."}
                   </TableCell>
                 </TableRow>
               )}
@@ -182,22 +177,6 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
           onOpenChange={setDrawerOpen} 
           timesheet={selectedTimesheet} 
           onSaved={loadData} 
-        />
-      )}
-
-      {configModalOpen && (
-        <PayrollPeriodConfigModal
-          open={configModalOpen}
-          onOpenChange={setConfigModalOpen}
-          payFrequency={frequency}
-          periodStart={startDate}
-          periodEnd={endDate}
-          existingConfig={period ? {
-            statutory_schedule_id: period.statutory_schedule_id,
-            period_sequence: period.period_sequence,
-            contribution_month: period.contribution_month
-          } : undefined}
-          onSave={handleSaveConfig}
         />
       )}
     </div>
