@@ -2,8 +2,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { NewEmployeeForm } from "./new-employee-form"
+import { createClient } from "@/lib/supabase/server"
 
-export default function NewEmployeePage() {
+export default async function NewEmployeePage() {
+  const supabase = await createClient()
+  
+  const { data: departments } = await supabase.from('departments').select('id, name').eq('is_active', true).order('name')
+  const { data: positions } = await supabase.from('positions').select('id, title, department_id').eq('is_active', true).order('title')
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
@@ -20,7 +26,7 @@ export default function NewEmployeePage() {
 
       <Card>
         <CardContent className="pt-6">
-          <NewEmployeeForm />
+          <NewEmployeeForm departments={departments || []} positions={positions || []} />
         </CardContent>
       </Card>
     </div>

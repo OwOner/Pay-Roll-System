@@ -9,6 +9,12 @@ export async function createEmployee(formData: FormData) {
   const adminAuth = await createAdminClient()
 
   // 1. Prepare Employee Data
+  const rawDept = formData.get('department_id') as string
+  const rawPos = formData.get('position_id') as string
+  
+  const department_id = rawDept && rawDept !== 'none' ? rawDept : null
+  const position_id = rawPos && rawPos !== 'none' ? rawPos : null
+
   const newEmployee: any = {
     first_name: formData.get("first_name") as string,
     middle_name: formData.get("middle_name") as string,
@@ -21,6 +27,8 @@ export async function createEmployee(formData: FormData) {
     date_hired: formData.get("date_hired") as string,
     employment_type: formData.get("employment_type") as string,
     employment_status: formData.get("employment_status") as string,
+    department_id,
+    position_id,
     sss_number: formData.get("sss_number") as string,
     philhealth_number: formData.get("philhealth_number") as string,
     pagibig_number: formData.get("pagibig_number") as string,
@@ -152,7 +160,29 @@ export async function createEmployee(formData: FormData) {
 
     if (profileError) {
       console.error("Failed to link profile:", profileError)
-      // We don't rollback the whole user here, but this is a critical error to log
+    }
+  }
+
+  // 2c. Insert Initial Compensation Profile (if provided)
+  const salaryBasis = formData.get("salary_basis") as string
+  const rate = formData.get("rate") as string
+  const payFrequency = formData.get("pay_frequency") as string
+
+  if (salaryBasis && rate && parseFloat(rate) > 0) {
+    const { error: compError } = await supabase
+      .from('employee_compensation_history')
+      .insert({
+        employee_id: employeeId,
+        salary_basis: salaryBasis,
+        rate: parseFloat(rate),
+        pay_frequency: payFrequency || 'Semi-Monthly',
+        effective_from: newEmployee.date_hired,
+        reason: 'Initial setup on hire'
+      })
+
+    if (compError) {
+      console.error("Error inserting compensation profile:", compError)
+      // Non-fatal, we continue
     }
   }
 

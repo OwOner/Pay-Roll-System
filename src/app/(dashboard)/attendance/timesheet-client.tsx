@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, CheckCircle2, Play, Settings2, Trash2 } from "lucide-react"
-import { fetchTimesheets, generateTimesheets, approveAllTimesheets, getOrCreatePayrollPeriod } from "./timesheet-actions"
+import { AlertCircle, CheckCircle2, Play, Settings2, Settings } from "lucide-react"
+import { fetchTimesheets, generateTimesheets, approveAllTimesheets, getPayrollPeriod, createPayrollPeriodWithConfig, updatePayrollPeriodConfig } from "./timesheet-actions"
 import TimesheetDetailDrawer from "./timesheet-detail-drawer"
+import PayrollPeriodConfigModal from "./components/payroll-period-config-modal"
 
 export default function TimesheetClient({ initialStartDate, initialEndDate }: { initialStartDate?: string, initialEndDate?: string }) {
   const [startDate, setStartDate] = useState(initialStartDate || "2026-09-01")
@@ -18,19 +19,23 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
   
   const [timesheets, setTimesheets] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [periodId, setPeriodId] = useState<string | null>(null)
+  const [period, setPeriod] = useState<any | null>(null)
   
   const [selectedTimesheet, setSelectedTimesheet] = useState<any>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [configModalOpen, setConfigModalOpen] = useState(false)
 
   const loadData = async () => {
     setIsLoading(true)
+    setTimesheets([])
     try {
-      const period = await getOrCreatePayrollPeriod(startDate, endDate, frequency)
-      setPeriodId(period.id)
-      const res = await fetchTimesheets(period.id)
-      if (res.success) {
-        setTimesheets(res.timesheets ?? [])
+      const p = await getPayrollPeriod(startDate, endDate, frequency)
+      setPeriod(p)
+      if (p) {
+        const res = await fetchTimesheets(p.id)
+        if (res.success) {
+          setTimesheets(res.timesheets ?? [])
+        }
       }
     } catch (e) {
       console.error(e)
@@ -43,20 +48,49 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
   }, [startDate, endDate, frequency])
 
   const handleGenerate = async () => {
-    if (!periodId) return
+    if (!period || !period.statutory_schedule_id) {
+      setConfigModalOpen(true)
+      return
+    }
+    
     setIsLoading(true)
-    const res = await generateTimesheets(periodId)
+    const res = await generateTimesheets(period.id)
     if (res && res.message) alert(res.message)
     await loadData()
   }
 
   const handleApproveAll = async () => {
-    if (!periodId) return
+    if (!period?.id) return
     setIsLoading(true)
-    const res = await approveAllTimesheets(periodId)
+    const res = await approveAllTimesheets(period.id)
     if (res && res.message) alert(res.message)
     if (res && res.error) alert("Error: " + res.error)
     await loadData()
+  }
+
+  const handleSaveConfig = async (config: any) => {
+    if (period) {
+      const res = await updatePayrollPeriodConfig(period.id, config)
+      if (!res.success) throw new Error(res.error)
+      // Automatically generate timesheets after config if they just configured an existing unconfigured period
+      const shouldGenerate = !period.statutory_schedule_id && timesheets.length === 0
+      await loadData()
+      if (shouldGenerate) {
+        await generateTimesheets(period.id)
+        await loadData()
+      }
+    } else {
+      const res = await createPayrollPeriodWithConfig({
+        period_start: startDate,
+        period_end: endDate,
+        pay_frequency: frequency,
+        ...config
+      })
+      if (!res.success) throw new Error(res.error)
+      // Automatically generate timesheets after creation
+      await generateTimesheets(res.period.id)
+      await loadData()
+    }
   }
 
   return (
@@ -78,6 +112,11 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
             <Button onClick={loadData} variant="secondary">Load</Button>
           </div>
           <div className="flex items-center gap-2">
+            {period && (
+               <Button onClick={() => setConfigModalOpen(true)} variant="outline" className="border-slate-200">
+                 <Settings className="h-4 w-4 mr-2" /> Config
+               </Button>
+            )}
             <Button onClick={handleGenerate} variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100">
               <Play className="h-4 w-4 mr-2" /> Generate Timesheets
             </Button>
@@ -128,7 +167,7 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
               {timesheets.length === 0 && !isLoading && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No timesheets generated for this period.
+                    {!period ? "Payroll period does not exist yet. Click Generate Timesheets to configure it." : "No timesheets generated for this period."}
                   </TableCell>
                 </TableRow>
               )}
@@ -143,6 +182,22 @@ export default function TimesheetClient({ initialStartDate, initialEndDate }: { 
           onOpenChange={setDrawerOpen} 
           timesheet={selectedTimesheet} 
           onSaved={loadData} 
+        />
+      )}
+
+      {configModalOpen && (
+        <PayrollPeriodConfigModal
+          open={configModalOpen}
+          onOpenChange={setConfigModalOpen}
+          payFrequency={frequency}
+          periodStart={startDate}
+          periodEnd={endDate}
+          existingConfig={period ? {
+            statutory_schedule_id: period.statutory_schedule_id,
+            period_sequence: period.period_sequence,
+            contribution_month: period.contribution_month
+          } : undefined}
+          onSave={handleSaveConfig}
         />
       )}
     </div>

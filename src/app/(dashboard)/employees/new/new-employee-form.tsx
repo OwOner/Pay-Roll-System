@@ -11,8 +11,21 @@ import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { createEmployee } from "./actions"
 
-export function NewEmployeeForm() {
+export function NewEmployeeForm({
+  departments = [],
+  positions = []
+}: {
+  departments?: any[]
+  positions?: any[]
+}) {
   const [createAccount, setCreateAccount] = useState(false)
+  const [selectedDeptId, setSelectedDeptId] = useState<string>("")
+  const [selectedPosId, setSelectedPosId] = useState<string>("")
+
+  // Filter positions based on selected department (if any)
+  const availablePositions = selectedDeptId && selectedDeptId !== "none"
+    ? positions.filter(p => p.department_id === selectedDeptId || !p.department_id)
+    : positions;
 
   return (
     <form action={createEmployee} className="space-y-8">
@@ -83,6 +96,34 @@ export function NewEmployeeForm() {
           <div className="space-y-2">
             <Label htmlFor="employee_code">Employee Code</Label>
             <Input id="employee_code" name="employee_code" placeholder="Auto-generated" disabled />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="department_id">Department (Optional)</Label>
+            <Select name="department_id" value={selectedDeptId} onValueChange={(v) => setSelectedDeptId(v || "")}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None / Unassigned</SelectItem>
+                {departments.map(d => (
+                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="position_id">Position (Optional)</Label>
+            <Select name="position_id" value={selectedPosId} onValueChange={(v) => setSelectedPosId(v || "")}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select position" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None / Unassigned</SelectItem>
+                {availablePositions.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="date_hired">Date Hired</Label>
@@ -156,6 +197,62 @@ export function NewEmployeeForm() {
           <div className="flex items-center space-x-2">
             <Checkbox id="pagibig_applicable" name="pagibig_applicable" value="true" defaultChecked />
             <Label htmlFor="pagibig_applicable" className="font-normal text-sm">Subject to Pag-IBIG Deduction</Label>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Initial Compensation */}
+      <div className="space-y-6">
+        <div className="space-y-0.5">
+          <h3 className="text-lg font-medium">Initial Compensation</h3>
+          <p className="text-sm text-muted-foreground">
+            Optionally set the initial salary details. You can also add this later in the employee's profile.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-md bg-slate-50">
+          <div className="space-y-2">
+            <Label htmlFor="salary_basis" className="font-semibold">Salary Basis</Label>
+            <Select name="salary_basis" defaultValue="">
+              <SelectTrigger id="salary_basis">
+                <SelectValue placeholder="Select basis..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Monthly">Monthly</SelectItem>
+                <SelectItem value="Daily">Daily</SelectItem>
+                <SelectItem value="Weekly">Weekly</SelectItem>
+                <SelectItem value="Hourly">Hourly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="rate" className="font-semibold">Rate (₱)</Label>
+            <Input
+              id="rate"
+              name="rate"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="pay_frequency" className="font-semibold">Pay Frequency</Label>
+            <Select name="pay_frequency" defaultValue="Semi-Monthly">
+              <SelectTrigger id="pay_frequency">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Weekly">Weekly</SelectItem>
+                <SelectItem value="Semi-Monthly">Semi-Monthly</SelectItem>
+                <SelectItem value="Monthly">Monthly</SelectItem>
+                <SelectItem value="Bi-weekly">Bi-weekly</SelectItem>
+                <SelectItem value="Daily">Daily</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>

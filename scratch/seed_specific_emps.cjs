@@ -82,9 +82,10 @@ async function seed() {
       .from('employee_compensation_history')
       .insert({
         employee_id: empId,
-        salary_type: 'Daily',
+        salary_basis: 'Daily',
+        salary_type: 'Daily', // keep for backwards compatibility if still required
         basic_salary: 0,
-        daily_rate: 500.00,
+        daily_rate: 610.00,
         pay_frequency: 'Weekly',
         effective_from: '2026-01-01'
       });
@@ -101,6 +102,8 @@ async function seed() {
         sss_applicable: false,
         philhealth_applicable: false,
         pagibig_applicable: false,
+        tax_applicable: false,
+        is_mwe: true,
         effective_from: '2026-01-01',
         reason: 'No statutory deductions or taxes per request'
       });

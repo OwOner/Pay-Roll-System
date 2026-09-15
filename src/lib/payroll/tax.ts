@@ -13,8 +13,8 @@ export function calculateWithholdingTax(
   const taxConfig = context.taxConfig;
   const payFrequency = context.period.pay_frequency;
 
-  if (!taxConfig) {
-    return []; // No active tax configuration, assume 0 tax
+  if (!taxConfig || context.statutoryApplicability?.tax === false) {
+    return []; // No active tax configuration or MWE/tax-exempt, assume 0 tax
   }
 
   // Filter brackets for the applicable pay frequency

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { PlayCircle, Loader2, Save, Send, Eye, ChevronDown } from "lucide-react"
 import { previewPayrollRun, submitPayrollRun } from "./actions"
+import { getPayrollPeriodStatuses, PeriodStatus } from "./payroll-run-actions"
 import { format } from "date-fns"
 import {
   Dialog,
@@ -43,31 +44,39 @@ export default function RunPayrollPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Period form values — remembered across steps
-  const [periodStart, setPeriodStart] = useState(defaultStart)
-  const [periodEnd, setPeriodEnd] = useState(defaultEnd)
-  const [payFrequency, setPayFrequency] = useState("Weekly")
-  const [payDate, setPayDate] = useState(defaultPayDate)
+  const [payFrequency, setPayFrequency] = useState("Semi-Monthly")
+  const [selectedPeriodKey, setSelectedPeriodKey] = useState<string>("")
+  const [periods, setPeriods] = useState<PeriodStatus[]>([])
 
   const [preview, setPreview] = useState<any[]>([])
 
-  // Persist last-used period in localStorage so returning to the page pre-fills it
+  // Fetch periods when frequency changes
+  useEffect(() => {
+    async function loadPeriods() {
+      const p = await getPayrollPeriodStatuses(payFrequency)
+      setPeriods(p)
+      if (p.length > 0 && !selectedPeriodKey) {
+        setSelectedPeriodKey(`${p[0].start}_${p[0].end}`)
+      }
+    }
+    loadPeriods()
+  }, [payFrequency])
+
+  // Persist last-used frequency in localStorage so returning to the page pre-fills it
   useEffect(() => {
     const saved = localStorage.getItem('payroll_run_period')
     if (saved) {
       try {
         const p = JSON.parse(saved)
-        if (p.start) setPeriodStart(p.start)
-        if (p.end) setPeriodEnd(p.end)
         if (p.freq) setPayFrequency(p.freq)
-        if (p.payDate) setPayDate(p.payDate)
+        if (p.key) setSelectedPeriodKey(p.key)
       } catch {}
     }
   }, [])
 
   function savePeriod() {
     localStorage.setItem('payroll_run_period', JSON.stringify({
-      start: periodStart, end: periodEnd, freq: payFrequency, payDate
+      freq: payFrequency, key: selectedPeriodKey
     }))
   }
 
@@ -76,11 +85,18 @@ export default function RunPayrollPage() {
     setError(null)
     savePeriod()
 
+    const selectedPeriod = periods.find(p => `${p.start}_${p.end}` === selectedPeriodKey)
+    if (!selectedPeriod) {
+      setError("Please select a valid payroll period.")
+      setLoading(false)
+      return
+    }
+
     const data = new FormData()
-    data.set('period_start', periodStart)
-    data.set('period_end', periodEnd)
+    data.set('period_start', selectedPeriod.start)
+    data.set('period_end', selectedPeriod.end)
     data.set('pay_frequency', payFrequency)
-    data.set('pay_date', payDate)
+    data.set('pay_date', selectedPeriod.payDate)
 
     const result = await previewPayrollRun(data)
 
@@ -101,11 +117,14 @@ export default function RunPayrollPage() {
     setLoading(true)
     setError(null)
 
+    const selectedPeriod = periods.find(p => `${p.start}_${p.end}` === selectedPeriodKey)
+    if (!selectedPeriod) return
+
     const data = new FormData()
-    data.set('period_start', periodStart)
-    data.set('period_end', periodEnd)
+    data.set('period_start', selectedPeriod.start)
+    data.set('period_end', selectedPeriod.end)
     data.set('pay_frequency', payFrequency)
-    data.set('pay_date', payDate)
+    data.set('pay_date', selectedPeriod.payDate)
 
     const result = await submitPayrollRun(data, status)
 
@@ -142,7 +161,10 @@ export default function RunPayrollPage() {
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Frequency</label>
               <select
                 value={payFrequency}
-                onChange={e => setPayFrequency(e.target.value)}
+                onChange={e => {
+                  setPayFrequency(e.target.value)
+                  setSelectedPeriodKey("") // reset period selection on freq change
+                }}
                 className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-slate-900 focus:outline-none"
               >
                 <option value="Semi-Monthly">Semi-Monthly</option>
@@ -152,34 +174,25 @@ export default function RunPayrollPage() {
               </select>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Period Start</label>
-              <input
-                type="date"
-                value={periodStart}
-                onChange={e => setPeriodStart(e.target.value)}
+            <div className="space-y-1 col-span-3">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Payroll Period</label>
+              <select
+                value={selectedPeriodKey}
+                onChange={e => setSelectedPeriodKey(e.target.value)}
                 className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-slate-900 focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Period End</label>
-              <input
-                type="date"
-                value={periodEnd}
-                onChange={e => setPeriodEnd(e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-slate-900 focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pay Date</label>
-              <input
-                type="date"
-                value={payDate}
-                onChange={e => setPayDate(e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-slate-900 focus:outline-none"
-              />
+              >
+                {periods.length === 0 && <option value="" disabled>Loading periods...</option>}
+                {periods.map(p => {
+                  const key = `${p.start}_${p.end}`
+                  const label = `${fmtDisplay(p.start)} – ${fmtDisplay(p.end)}  |  Payout: ${fmtDisplay(p.payDate)}`
+                  const status = p.statusText.includes("⚠") ? "⚠ NOT READY" : (p.timesheetsGenerated ? "✓ READY" : "")
+                  return (
+                    <option key={key} value={key} className={p.timesheetsGenerated ? "font-medium" : "text-slate-400"}>
+                      {label}  ({p.statusText})
+                    </option>
+                  )
+                })}
+              </select>
             </div>
           </div>
 
@@ -203,9 +216,9 @@ export default function RunPayrollPage() {
                 <h3 className="text-lg font-bold text-slate-900">Calculation Preview</h3>
                 <p className="text-sm text-slate-500 mt-1">
                   {payFrequency} Period:{' '}
-                  <span className="font-medium text-slate-700">{fmtDisplay(periodStart)}</span>
+                  <span className="font-medium text-slate-700">{fmtDisplay(selectedPeriodKey.split('_')[0] || '')}</span>
                   {' '}to{' '}
-                  <span className="font-medium text-slate-700">{fmtDisplay(periodEnd)}</span>
+                  <span className="font-medium text-slate-700">{fmtDisplay(selectedPeriodKey.split('_')[1] || '')}</span>
                 </p>
               </div>
               {(hasWarnings || hasErrors) && (

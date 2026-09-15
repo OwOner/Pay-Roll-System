@@ -83,6 +83,7 @@ export function StatutoryProfileManager({
                 </div>
 
                 <div className="flex flex-col space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-md">
+                  <h4 className="text-sm font-medium mb-1">Government Contributions</h4>
                   <div className="flex items-center space-x-2">
                     <Checkbox id="sss_applicable" name="sss_applicable" value="true" defaultChecked={currentProfile?.sss_applicable ?? true} />
                     <Label htmlFor="sss_applicable" className="font-normal text-sm">Subject to SSS</Label>
@@ -94,6 +95,25 @@ export function StatutoryProfileManager({
                   <div className="flex items-center space-x-2">
                     <Checkbox id="pagibig_applicable" name="pagibig_applicable" value="true" defaultChecked={currentProfile?.pagibig_applicable ?? true} />
                     <Label htmlFor="pagibig_applicable" className="font-normal text-sm">Subject to Pag-IBIG</Label>
+                  </div>
+                </div>
+
+                <div className="flex flex-col space-y-3 p-4 bg-slate-50 border border-slate-200 rounded-md">
+                  <h4 className="text-sm font-medium mb-1">Tax Profile</h4>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="tax_applicable" name="tax_applicable" value="true" defaultChecked={currentProfile?.tax_applicable ?? true} />
+                    <Label htmlFor="tax_applicable" className="font-normal text-sm">Subject to Withholding Tax</Label>
+                  </div>
+                  <div className="flex items-center space-x-2 pt-2 border-t border-slate-200 mt-2">
+                    <Checkbox id="is_mwe" name="is_mwe" value="true" defaultChecked={currentProfile?.is_mwe ?? false} />
+                    <Label htmlFor="is_mwe" className="font-normal text-sm">Minimum Wage Earner (MWE)</Label>
+                  </div>
+                  
+                  <div className="pt-2 text-xs text-slate-500 italic">
+                    Future Configuration (View Only):<br/>
+                    Applicable Wage Region: NCR<br/>
+                    Applicable Wage Order: WO-NCR-24<br/>
+                    Statutory Minimum Wage: ₱610.00 / day
                   </div>
                 </div>
               </div>
@@ -109,23 +129,35 @@ export function StatutoryProfileManager({
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="p-4 rounded-lg border border-slate-100 bg-slate-50/50">
-          <p className="text-sm font-medium text-slate-500 mb-1">SSS</p>
-          <p className="font-semibold text-slate-900">
-            {currentProfile?.sss_applicable ? 'Applicable' : 'Not Applicable'}
+          <p className="text-xs font-medium text-slate-500 mb-1">Withholding Tax</p>
+          <p className="font-semibold text-slate-900 text-sm">
+            {currentProfile?.tax_applicable ? 'Applicable' : 'Exempt'}
           </p>
         </div>
         <div className="p-4 rounded-lg border border-slate-100 bg-slate-50/50">
-          <p className="text-sm font-medium text-slate-500 mb-1">PhilHealth</p>
-          <p className="font-semibold text-slate-900">
-            {currentProfile?.philhealth_applicable ? 'Applicable' : 'Not Applicable'}
+          <p className="text-xs font-medium text-slate-500 mb-1">MWE Status</p>
+          <p className="font-semibold text-slate-900 text-sm">
+            {currentProfile?.is_mwe ? 'MWE Exemptions' : 'Regular Tax'}
           </p>
         </div>
         <div className="p-4 rounded-lg border border-slate-100 bg-slate-50/50">
-          <p className="text-sm font-medium text-slate-500 mb-1">Pag-IBIG</p>
-          <p className="font-semibold text-slate-900">
-            {currentProfile?.pagibig_applicable ? 'Applicable' : 'Not Applicable'}
+          <p className="text-xs font-medium text-slate-500 mb-1">SSS</p>
+          <p className="font-semibold text-slate-900 text-sm">
+            {currentProfile?.sss_applicable ? 'Applicable' : 'Exempt'}
+          </p>
+        </div>
+        <div className="p-4 rounded-lg border border-slate-100 bg-slate-50/50">
+          <p className="text-xs font-medium text-slate-500 mb-1">PhilHealth</p>
+          <p className="font-semibold text-slate-900 text-sm">
+            {currentProfile?.philhealth_applicable ? 'Applicable' : 'Exempt'}
+          </p>
+        </div>
+        <div className="p-4 rounded-lg border border-slate-100 bg-slate-50/50">
+          <p className="text-xs font-medium text-slate-500 mb-1">Pag-IBIG</p>
+          <p className="font-semibold text-slate-900 text-sm">
+            {currentProfile?.pagibig_applicable ? 'Applicable' : 'Exempt'}
           </p>
         </div>
       </div>

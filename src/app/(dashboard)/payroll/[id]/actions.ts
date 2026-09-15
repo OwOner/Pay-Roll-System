@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
-export async function approvePayrollRun(payrollRunId: string) {
+export async function approvePayrollRun(payrollRunId: string, overrideReason?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -42,6 +42,8 @@ export async function approvePayrollRun(payrollRunId: string) {
 
   if (error) return { error: error.message }
 
+  const finalReason = overrideReason ? `Approved with warnings override: ${overrideReason}` : 'Approved by authorized user';
+
   // 2. Insert Status History
   await supabase
     .from('payroll_status_history')
@@ -49,7 +51,7 @@ export async function approvePayrollRun(payrollRunId: string) {
       payroll_run_id: payrollRunId,
       status: 'Approved',
       changed_by: user?.id,
-      reason: 'Approved by authorized user'
+      reason: finalReason
     })
 
   // 3. Insert Audit Log
@@ -60,7 +62,7 @@ export async function approvePayrollRun(payrollRunId: string) {
       action: 'PAYROLL_APPROVED',
       entity_type: 'payroll_runs',
       entity_id: payrollRunId,
-      reason: 'Payroll approved and locked.'
+      reason: finalReason
     })
 
   revalidatePath(`/payroll/${payrollRunId}`)
@@ -112,7 +114,73 @@ export async function markPayrollPaid(payrollRunId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 1. Update status to 'Paid'
+  // 1. Fetch current status to ensure we don't process multiple times
+  const { data: runData } = await supabase.from('payroll_runs').select('status').eq('id', payrollRunId).single()
+  if (!runData) return { error: 'Run not found' }
+  if (runData.status === 'Paid') return { success: true } // Already paid
+
+  // 2. Process Cash Advances
+  // Find all cash advance deductions for this run
+  const { data: items } = await supabase
+    .from('payroll_items')
+    .select('id')
+    .eq('payroll_run_id', payrollRunId)
+
+  if (items && items.length > 0) {
+    const itemIds = items.map(i => i.id)
+    const { data: deductions } = await supabase
+      .from('payroll_deductions')
+      .select('amount, source_id')
+      .in('payroll_item_id', itemIds)
+      .eq('source', 'Cash Advance')
+
+    if (deductions && deductions.length > 0) {
+      // Check if repayments already exist for this run to prevent duplicates
+      const { data: existingRepayments } = await supabase
+        .from('cash_advance_repayments')
+        .select('id')
+        .eq('payroll_run_id', payrollRunId)
+
+      if (!existingRepayments || existingRepayments.length === 0) {
+        // Insert repayments and update balances
+        for (const ded of deductions) {
+          if (ded.source_id) {
+            // Insert repayment
+            await supabase.from('cash_advance_repayments').insert({
+              cash_advance_id: ded.source_id,
+              payroll_run_id: payrollRunId,
+              amount: ded.amount,
+              repayment_date: new Date().toISOString()
+            })
+            // Update balance
+            // We read the current balance first
+            const { data: caData } = await supabase
+              .from('cash_advances')
+              .select('remaining_balance')
+              .eq('id', ded.source_id)
+              .single()
+            
+            if (caData) {
+              let newBalance = Number(caData.remaining_balance) - Number(ded.amount)
+              if (newBalance < 0) newBalance = 0
+              
+              let newStatus = newBalance === 0 ? 'Fully Paid' : 'Partially Paid'
+              
+              await supabase
+                .from('cash_advances')
+                .update({ 
+                  remaining_balance: newBalance,
+                  status: newStatus
+                })
+                .eq('id', ded.source_id)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Update status to 'Paid'
   const { error } = await supabase
     .from('payroll_runs')
     .update({ 
@@ -122,7 +190,7 @@ export async function markPayrollPaid(payrollRunId: string) {
 
   if (error) return { error: error.message }
 
-  // 2. Insert Status History
+  // 4. Insert Status History
   await supabase
     .from('payroll_status_history')
     .insert({
@@ -132,7 +200,7 @@ export async function markPayrollPaid(payrollRunId: string) {
       reason: 'Marked as disbursed to employees'
     })
 
-  // 3. Insert Audit Log
+  // 5. Insert Audit Log
   await supabase
     .from('audit_logs')
     .insert({

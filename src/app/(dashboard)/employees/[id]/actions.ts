@@ -208,3 +208,87 @@ export async function togglePayrollExemption(employeeId: string, isExempt: boole
   revalidatePath(`/employees/${employeeId}`)
   return { success: true }
 }
+
+export async function createCashAdvance(formData: FormData) {
+  const supabase = await createClient()
+
+  const employee_id = formData.get("employee_id") as string
+  const amount = parseFloat(formData.get("amount") as string)
+  const date = formData.get("date") as string
+  const repayment_amount_per_payroll = parseFloat(formData.get("repayment_amount_per_payroll") as string)
+  const reason = formData.get("reason") as string
+
+  if (!employee_id || isNaN(amount) || !date || isNaN(repayment_amount_per_payroll)) {
+    return { success: false, error: "Missing required fields or invalid amounts" }
+  }
+
+  if (amount <= 0 || repayment_amount_per_payroll <= 0) {
+    return { success: false, error: "Amount and repayment amount must be positive" }
+  }
+
+  const { error } = await supabase
+    .from("cash_advances")
+    .insert({
+      employee_id,
+      amount,
+      date,
+      reason,
+      repayment_amount_per_payroll,
+      remaining_balance: amount,
+      status: 'Active'
+    })
+
+  if (error) {
+    console.error("Error creating cash advance:", error)
+    return { success: false, error: error.message }
+  }
+
+  revalidatePath(`/employees/${employee_id}`)
+  return { success: true }
+}
+
+export async function updateCashAdvance(formData: FormData) {
+  const supabase = await createClient()
+
+  const id = formData.get("id") as string
+  const employee_id = formData.get("employee_id") as string
+  const repayment_amount_per_payroll = parseFloat(formData.get("repayment_amount_per_payroll") as string)
+
+  if (!id || !employee_id || isNaN(repayment_amount_per_payroll) || repayment_amount_per_payroll <= 0) {
+    return { success: false, error: "Invalid repayment amount" }
+  }
+
+  const { error } = await supabase
+    .from("cash_advances")
+    .update({ repayment_amount_per_payroll })
+    .eq("id", id)
+
+  if (error) {
+    console.error("Error updating cash advance:", error)
+    return { success: false, error: error.message }
+  }
+
+  revalidatePath(`/employees/${employee_id}`)
+  return { success: true }
+}
+
+export async function toggleCashAdvanceStatus(id: string, employee_id: string, newStatus: string) {
+  const supabase = await createClient()
+
+  if (!['Active', 'Paused'].includes(newStatus)) {
+    return { success: false, error: "Invalid status toggle" }
+  }
+
+  const { error } = await supabase
+    .from("cash_advances")
+    .update({ status: newStatus })
+    .eq("id", id)
+
+  if (error) {
+    console.error("Error toggling cash advance status:", error)
+    return { success: false, error: error.message }
+  }
+
+  revalidatePath(`/employees/${employee_id}`)
+  return { success: true }
+}

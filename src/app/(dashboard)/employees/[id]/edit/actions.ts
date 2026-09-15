@@ -6,6 +6,12 @@ import { redirect } from "next/navigation"
 export async function updateEmployee(id: string, formData: FormData) {
   const supabase = await createClient()
 
+  const rawDept = formData.get('department_id') as string
+  const rawPos = formData.get('position_id') as string
+  
+  const department_id = rawDept && rawDept !== 'none' ? rawDept : null
+  const position_id = rawPos && rawPos !== 'none' ? rawPos : null
+
   const updatedEmployee = {
     first_name: formData.get("first_name") as string,
     middle_name: formData.get("middle_name") as string,
@@ -15,6 +21,8 @@ export async function updateEmployee(id: string, formData: FormData) {
     date_hired: formData.get("date_hired") as string,
     employment_type: formData.get("employment_type") as string,
     employment_status: formData.get("employment_status") as string,
+    department_id,
+    position_id,
     sss_number: formData.get("sss_number") as string,
     philhealth_number: formData.get("philhealth_number") as string,
     pagibig_number: formData.get("pagibig_number") as string,
@@ -51,7 +59,7 @@ export async function updateStatutoryProfile(employeeId: string, formData: FormD
   // Check if we already have an active profile
   const { data: currentProfile } = await supabase
     .from('employee_statutory_profiles')
-    .select('id, effective_from')
+    .select('id, effective_from, tax_applicable, is_mwe')
     .eq('employee_id', employeeId)
     .is('effective_to', null)
     .single()
@@ -69,21 +77,49 @@ export async function updateStatutoryProfile(employeeId: string, formData: FormD
       .eq('id', currentProfile.id)
   }
 
-  // Insert new profile
+// Insert new profile
+  const taxApplicable = formData.get("tax_applicable") === "true"
+  const isMwe = formData.get("is_mwe") === "true"
+  const reason = formData.get("reason") as string
+  
   const { error } = await supabase
     .from('employee_statutory_profiles')
     .insert({
       employee_id: employeeId,
       effective_from: effectiveFrom,
-      reason: formData.get("reason") as string,
+      reason: reason,
       sss_applicable: formData.get("sss_applicable") === "true",
       philhealth_applicable: formData.get("philhealth_applicable") === "true",
-      pagibig_applicable: formData.get("pagibig_applicable") === "true"
+      pagibig_applicable: formData.get("pagibig_applicable") === "true",
+      tax_applicable: taxApplicable,
+      is_mwe: isMwe
     })
 
   if (error) {
     console.error("Error inserting statutory profile:", error)
     return { error: error.message }
+  }
+
+  // Audit Logging
+  const { data: userData } = await supabase.auth.getUser()
+  const userId = userData?.user?.id || null
+
+  const oldTax = currentProfile ? currentProfile.tax_applicable : null
+  const oldMwe = currentProfile ? currentProfile.is_mwe : null
+
+  if (oldTax !== taxApplicable || oldMwe !== isMwe) {
+    await supabase.from('audit_logs').insert({
+      action: 'STATUTORY_PROFILE_UPDATED',
+      entity_type: 'employee',
+      entity_id: employeeId,
+      actor_id: userId,
+      details: {
+        reason: reason,
+        effective_from: effectiveFrom,
+        tax_applicable: { old: oldTax, new: taxApplicable },
+        is_mwe: { old: oldMwe, new: isMwe }
+      }
+    })
   }
 
   redirect(`/employees/${employeeId}/edit`)

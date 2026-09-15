@@ -90,6 +90,35 @@ export async function updateAttendanceRecord(
   }
   // ---------------------------------------------------
 
+  let finalRegularHours = Number(payload.regular_hours || 0)
+  if (finalRegularHours === 0 && ['Present', 'Work From Home', 'Holiday'].includes(payload.status)) {
+    // Determine the employee's scheduled hours from their work arrangement
+    const { data: emp } = await supabase
+      .from('employees')
+      .select(`
+        positions(default_work_policy_id),
+        employee_work_policies(work_policy_id, effective_from, effective_to)
+      `)
+      .eq('id', payload.employee_id || (recordId ? (await supabase.from('attendance_records').select('employee_id').eq('id', recordId).single()).data?.employee_id : null))
+      .single()
+
+    let scheduledHours = 8.0
+    if (emp) {
+      let activePolicyId = (emp.positions as any)?.default_work_policy_id
+      if (emp.employee_work_policies && emp.employee_work_policies.length > 0) {
+        const specific = emp.employee_work_policies.find((ewp: any) => !ewp.effective_to || new Date(ewp.effective_to) >= new Date(workDate || new Date().toISOString().split('T')[0]))
+        if (specific) activePolicyId = specific.work_policy_id
+      }
+      if (activePolicyId) {
+        const { data: policy } = await supabase.from('work_policies').select('scheduled_hours_per_day').eq('id', activePolicyId).single()
+        if (policy?.scheduled_hours_per_day) {
+          scheduledHours = Number(policy.scheduled_hours_per_day)
+        }
+      }
+    }
+    finalRegularHours = scheduledHours
+  }
+
   try {
     if (recordId) {
       // 1. Fetch original record
@@ -117,7 +146,7 @@ export async function updateAttendanceRecord(
         time_in: payload.time_in,
         time_out: payload.time_out,
         status: payload.status,
-        regular_hours: payload.regular_hours || 0,
+        regular_hours: finalRegularHours,
         overtime_hours: payload.overtime_hours || 0,
         project_id: payload.project_id || null,
         internal_notes: payload.internal_notes || null,
@@ -157,7 +186,7 @@ export async function updateAttendanceRecord(
         time_in: payload.time_in,
         time_out: payload.time_out,
         status: payload.status,
-        regular_hours: payload.regular_hours || 0,
+        regular_hours: finalRegularHours,
         overtime_hours: payload.overtime_hours || 0,
         project_id: payload.project_id || null,
         internal_notes: payload.internal_notes || null,

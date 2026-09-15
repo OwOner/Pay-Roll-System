@@ -2,20 +2,49 @@
 
 import { useState } from "react"
 import { approvePayrollRun, rejectPayrollRun, markPayrollPaid, submitDraftForApproval, deleteDraft } from "./actions"
-import { Loader2, Check, X, Banknote, Send, Trash, FileText } from "lucide-react"
+import { Loader2, Check, X, Banknote, Send, Trash, FileText, Download } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+
+import { getPayrollDiagnostics } from "./reconciliation-actions"
 
 export default function PayrollActions({ runId, status }: { runId: string, status: string }) {
   const [loading, setLoading] = useState(false)
   const [showReject, setShowReject] = useState(false)
+  const [showOverride, setShowOverride] = useState(false)
   const router = useRouter()
   void router // suppress unused-vars warning — kept at top for hooks rules compliance
   
-  async function handleApprove() {
+  async function handleApproveAttempt() {
     setLoading(true)
-    await approvePayrollRun(runId)
+    const diagnostics = await getPayrollDiagnostics(runId)
     setLoading(false)
+
+    if (diagnostics.hasBlockingErrors) {
+      alert("Cannot approve: Blocking errors detected. Please review the Diagnostics tab.")
+      return
+    }
+
+    if (diagnostics.warnings.length > 0) {
+      setShowOverride(true)
+      return
+    }
+
+    // Clean payroll
+    setLoading(true)
+    const result = await approvePayrollRun(runId)
+    if (result.error) alert(result.error)
+    setLoading(false)
+  }
+
+  async function handleApproveWithOverride(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setLoading(true)
+    const data = new FormData(e.currentTarget)
+    const result = await approvePayrollRun(runId, data.get('reason') as string)
+    if (result.error) alert(result.error)
+    setLoading(false)
+    setShowOverride(false)
   }
 
   async function handleReject(e: React.FormEvent<HTMLFormElement>) {
@@ -44,6 +73,13 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
           <FileText className="w-4 h-4" />
           Print Payslips
         </Link>
+        <a
+          href={`/api/payroll/export?runId=${runId}`}
+          className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+        >
+          <Download className="w-4 h-4" />
+          Export CSV
+        </a>
         <button
           onClick={handlePaid}
           disabled={loading}
@@ -58,14 +94,23 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
 
   if (status === 'Paid') {
     return (
-      <Link
-        href={`/payroll/${runId}/payslips`}
-        target="_blank"
-        className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
-      >
-        <FileText className="w-4 h-4" />
-        Print Payslips
-      </Link>
+      <div className="flex gap-3">
+        <Link
+          href={`/payroll/${runId}/payslips`}
+          target="_blank"
+          className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+        >
+          <FileText className="w-4 h-4" />
+          Print Payslips
+        </Link>
+        <a
+          href={`/api/payroll/export?runId=${runId}`}
+          className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+        >
+          <Download className="w-4 h-4" />
+          Export CSV
+        </a>
+      </div>
     )
   }
 
@@ -142,6 +187,35 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
     )
   }
 
+  if (showOverride) {
+    return (
+      <form onSubmit={handleApproveWithOverride} className="flex items-center gap-2">
+        <input 
+          type="text" 
+          name="reason" 
+          required 
+          placeholder="Reason for overriding warnings..." 
+          className="p-2 text-sm border border-orange-300 rounded-lg w-64"
+          autoFocus
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 disabled:opacity-50"
+        >
+          {loading ? "..." : "Confirm Override"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowOverride(false)}
+          className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-200"
+        >
+          Cancel
+        </button>
+      </form>
+    )
+  }
+
   return (
     <div className="flex gap-3">
       <button
@@ -151,7 +225,7 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
         <X className="w-4 h-4" /> Reject
       </button>
       <button
-        onClick={handleApprove}
+        onClick={handleApproveAttempt}
         disabled={loading}
         className="inline-flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-orange-700 transition-colors disabled:opacity-50 shadow-sm"
       >

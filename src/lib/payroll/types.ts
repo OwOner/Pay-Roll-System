@@ -176,6 +176,14 @@ export interface PayrollOverride {
   override_reason: string;
 }
 
+export interface CashAdvance {
+  id: string;
+  amount: Decimal;
+  repayment_amount_per_payroll: Decimal;
+  remaining_balance: Decimal;
+  reason?: string;
+}
+
 /**
  * The unified context object containing all required inputs to run a deterministic calculation
  * for a single employee in a single payroll period.
@@ -189,6 +197,7 @@ export interface PayrollContext {
   holidays: HolidayRecord[];
   adjustments: ManualAdjustment[];
   overrides?: PayrollOverride[];
+  cashAdvances?: CashAdvance[];
   
   // Official Configurations
   taxConfig: TaxTableConfig | null;
@@ -196,10 +205,26 @@ export interface PayrollContext {
   philhealthConfig: PhilhealthConfig | null;
   pagibigConfig: PagibigConfig | null;
   activePolicy: any; // Add activePolicy directly to context
-  statutoryApplicability: {
+  statutoryApplicability?: {
     sss: boolean;
     philhealth: boolean;
     pagibig: boolean;
+    tax: boolean;
+    is_mwe: boolean;
+  };
+
+  // Statutory Schedule Allocation (Phase 6A Task 1)
+  statutoryAllocation: {
+    sss_percentage: Decimal; // e.g., 50.00 for 50%
+    philhealth_percentage: Decimal;
+    pagibig_percentage: Decimal;
+  };
+  
+  // Cumulative deductions for the current contribution month
+  cumulativeStatutoryDeductions: {
+    sss: Decimal;
+    philhealth: Decimal;
+    pagibig: Decimal;
   };
 }
 
@@ -214,6 +239,8 @@ export interface EarningResult {
   overridden_amount?: Decimal; // If manual override was applied
   override_reason?: string;
   is_taxable: boolean;
+  tax_treatment?: 'taxable' | 'non_taxable' | 'mwe_exempt' | 'de_minimis' | 'statutory_exempt';
+  tax_exempt_reason?: string;
   is_sss_covered: boolean;
   is_philhealth_covered: boolean;
   is_pagibig_covered: boolean;

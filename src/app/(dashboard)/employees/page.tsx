@@ -17,7 +17,8 @@ export default async function EmployeesPage() {
     .select(`
       *,
       departments(name),
-      positions(title)
+      positions(title),
+      employee_compensation_history(id, effective_to)
     `)
     .order('last_name', { ascending: true })
 
@@ -61,6 +62,7 @@ export default async function EmployeesPage() {
                 <TableHead>Department</TableHead>
                 <TableHead>Position</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Salary Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -79,6 +81,19 @@ export default async function EmployeesPage() {
                       <Badge variant={emp.employment_status === 'Active' ? 'default' : 'secondary'}>
                         {emp.employment_status}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {emp.employee_compensation_history && emp.employee_compensation_history.some((c: any) => !c.effective_to || new Date(c.effective_to) > new Date()) ? (
+                        <div className="flex items-center text-green-600 text-sm">
+                          <span className="mr-1">✓</span> Salary Set
+                        </div>
+                      ) : (
+                        <Link href={`/employees/${emp.id}?tab=compensation`}>
+                          <div className="flex items-center text-amber-600 font-medium text-sm hover:underline cursor-pointer">
+                            <span className="mr-1">⚠</span> Salary Not Set
+                          </div>
+                        </Link>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <Link href={`/employees/${emp.id}`}>

@@ -37,6 +37,12 @@ export default function SettingsLayout({
               Tax Tables
             </Link>
             <Link
+              href="/settings/organization"
+              className="inline-flex h-9 items-center justify-start rounded-md px-4 py-2 text-sm font-medium hover:bg-muted hover:text-accent-foreground"
+            >
+              Organization
+            </Link>
+            <Link
               href="/settings/work-policies"
               className="inline-flex h-9 items-center justify-start rounded-md px-4 py-2 text-sm font-medium hover:bg-muted hover:text-accent-foreground"
             >
@@ -47,6 +53,12 @@ export default function SettingsLayout({
               className="inline-flex h-9 items-center justify-start rounded-md px-4 py-2 text-sm font-medium hover:bg-muted hover:text-accent-foreground"
             >
               Contributions
+            </Link>
+            <Link
+              href="/settings/statutory-schedules"
+              className="inline-flex h-9 items-center justify-start rounded-md px-4 py-2 text-sm font-medium hover:bg-muted hover:text-accent-foreground"
+            >
+              Statutory Schedules
             </Link>
             <Link
               href="/settings/holidays"

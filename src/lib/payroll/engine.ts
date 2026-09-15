@@ -16,7 +16,8 @@ import {
 } from "./contributions";
 import { calculateWithholdingTax } from "./tax";
 import { validatePayrollResult } from "./validation";
-import { WorkPolicy, DEFAULT_WORK_POLICY } from "./rate-calculator";
+import { WorkPolicy, DEFAULT_WORK_POLICY, deriveMonthlyStatutoryBasis } from "./rate-calculator";
+import { getActiveCompensation } from "./earnings";
 
 export const CALCULATION_ENGINE_VERSION = "2.0.0"; // Upgraded to Multiplicative Engine
 
@@ -40,6 +41,26 @@ export function calculatePayroll(context: PayrollContext, activePolicy?: WorkPol
   let grossPay = new Decimal(0);
   let totalTaxableEarnings = new Decimal(0);
   let totalNonTaxableEarnings = new Decimal(0);
+
+  // MWE Tax Exemption Logic
+  const isMwe = context.statutoryApplicability?.is_mwe;
+  if (isMwe) {
+    for (const earning of earnings) {
+      if (['Basic Pay', 'Overtime', 'Holiday Pay', 'Night Differential'].includes(earning.type) || earning.description.includes('Hazard Pay')) {
+        earning.tax_treatment = 'mwe_exempt';
+        earning.tax_exempt_reason = 'MWE Statutory Exemption';
+        earning.is_taxable = false;
+      }
+    }
+  }
+
+  // Ensure default tax_treatment is set if not already present
+  for (const earning of earnings) {
+    if (!earning.tax_treatment) {
+      earning.tax_treatment = earning.is_taxable ? 'taxable' : 'non_taxable';
+    }
+  }
+
   let sssBasis = new Decimal(0);
   let philhealthBasis = new Decimal(0);
   let pagibigBasis = new Decimal(0);
@@ -74,10 +95,64 @@ export function calculatePayroll(context: PayrollContext, activePolicy?: WorkPol
   if (pagibigBasis.lessThan(0)) pagibigBasis = new Decimal(0);
   if (totalTaxableEarnings.lessThan(0)) totalTaxableEarnings = new Decimal(0);
 
-  // 2. Calculate Statutory Contributions
-  deductions.push(...calculateSSS(sssBasis, context));
-  deductions.push(...calculatePhilHealth(philhealthBasis, context));
-  deductions.push(...calculatePagIBIG(pagibigBasis, context));
+  // 2. Calculate Statutory Contributions (Phase 6A Task 1)
+  // Use the strict Monthly Statutory Basis instead of current period gross pay
+  const activeCompForStatutory = getActiveCompensation(context.employee.history, context.period.period_end);
+  if (!activeCompForStatutory) {
+    throw new Error(`No active compensation found at period end for statutory basis calculation.`);
+  }
+  
+  // This will strictly use the compensation values and throw if configurations (like annualization_factor) are missing.
+  const monthlyStatutoryBasis = deriveMonthlyStatutoryBasis(activeCompForStatutory, context.activePolicy || DEFAULT_WORK_POLICY);
+
+  // Calculate the FULL monthly statutory obligation
+  const rawSSS = calculateSSS(monthlyStatutoryBasis, context);
+  const rawPhilHealth = calculatePhilHealth(monthlyStatutoryBasis, context);
+  const rawPagIBIG = calculatePagIBIG(monthlyStatutoryBasis, context);
+
+  // Apply Schedule Allocation logic (MIN(Intended, Remaining))
+  const applyAllocation = (
+    rawDeductions: DeductionResult[],
+    allocationPercentage: Decimal | undefined,
+    cumulativeTotal: Decimal | undefined
+  ) => {
+    const alloc = allocationPercentage || new Decimal(0);
+    const cumul = cumulativeTotal || new Decimal(0);
+
+    for (const ded of rawDeductions) {
+      if (alloc.isZero()) {
+        continue;
+      }
+      
+      const intendedAmount = ded.amount.mul(alloc).div(100).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+      
+      // Prevent over-deduction for employee share
+      const remainingAmount = ded.amount.sub(cumul);
+      let finalAmount = Decimal.min(intendedAmount, remainingAmount);
+      
+      if (finalAmount.lessThan(0)) {
+        finalAmount = new Decimal(0);
+      }
+
+      // For Employer Share, apportion it according to the schedule (they usually match the employee allocation logic)
+      const intendedEmployer = ded.employer_amount 
+        ? ded.employer_amount.mul(alloc).div(100).toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+        : undefined;
+
+      if (finalAmount.greaterThan(0) || (intendedEmployer && intendedEmployer.greaterThan(0))) {
+        deductions.push({
+          ...ded,
+          amount: finalAmount,
+          employer_amount: intendedEmployer,
+          calculated_amount: ded.amount, // Store original full monthly as calculated
+        });
+      }
+    }
+  };
+
+  applyAllocation(rawSSS, context.statutoryAllocation?.sss_percentage, context.cumulativeStatutoryDeductions?.sss);
+  applyAllocation(rawPhilHealth, context.statutoryAllocation?.philhealth_percentage, context.cumulativeStatutoryDeductions?.philhealth);
+  applyAllocation(rawPagIBIG, context.statutoryAllocation?.pagibig_percentage, context.cumulativeStatutoryDeductions?.pagibig);
 
   // 3. Compute Taxable Compensation
   // Taxable Comp = Taxable Earnings - Mandatory Employee Contributions (SSS, PhilHealth, Pag-IBIG)
@@ -120,6 +195,48 @@ export function calculatePayroll(context: PayrollContext, activePolicy?: WorkPol
   // 4. Calculate Withholding Tax
   const taxDeductions = calculateWithholdingTax(taxableCompensation, context);
   deductions.push(...taxDeductions);
+
+  // Calculate available net pay before Cash Advances
+  // Aggregate all earnings and deductions so far
+  let currentGrossPay = new Decimal(0);
+  let currentTotalDeductions = new Decimal(0);
+  for (const e of earnings) currentGrossPay = currentGrossPay.plus(e.amount);
+  for (const d of deductions) currentTotalDeductions = currentTotalDeductions.plus(d.amount);
+  
+  let availableNetPay = currentGrossPay.sub(currentTotalDeductions);
+  if (availableNetPay.lessThan(0)) availableNetPay = new Decimal(0);
+
+  // 4.5 Deduct Cash Advances (Protected by Available Net Pay)
+  if (context.cashAdvances && context.cashAdvances.length > 0) {
+    for (const ca of context.cashAdvances) {
+      if (ca.remaining_balance.greaterThan(0) && availableNetPay.greaterThan(0)) {
+        let repayment = ca.repayment_amount_per_payroll;
+        if (ca.remaining_balance.lessThan(repayment)) {
+          repayment = ca.remaining_balance;
+        }
+        
+        // Cap the deduction to the available net pay
+        if (repayment.greaterThan(availableNetPay)) {
+          repayment = availableNetPay;
+        }
+
+        deductions.push({
+          type: "Loan",
+          description: `Cash Advance Repayment${ca.reason ? ` - ${ca.reason}` : ''}`,
+          amount: repayment,
+          source: "Cash Advance",
+          source_id: ca.id,
+          is_pre_tax: false,
+          is_sss_deductible: false,
+          is_philhealth_deductible: false,
+          is_pagibig_deductible: false
+        });
+        
+        // Update available net pay for subsequent cash advances (if any)
+        availableNetPay = availableNetPay.sub(repayment);
+      }
+    }
+  }
 
   // Apply Overrides
   if (context.overrides && context.overrides.length > 0) {

@@ -15,7 +15,7 @@ export async function loadPayrollContext(
   // 1. Fetch or resolve the Payroll Period ID
   const { data: dbPeriod } = await supabase
     .from('payroll_periods')
-    .select('id, period_start, period_end, pay_frequency')
+    .select('*, payroll_runs(id, status)')
     .eq('period_start', periodStart)
     .eq('period_end', periodEnd)
     .eq('pay_frequency', payFrequency)
@@ -35,7 +35,12 @@ export async function loadPayrollContext(
     period_start: periodStart,
     period_end: periodEnd,
     pay_frequency: payFrequency,
+    statutory_schedule_id: dbPeriod?.statutory_schedule_id,
+    period_sequence: dbPeriod?.period_sequence,
+    contribution_month: dbPeriod?.contribution_month
   };
+
+  const currentRunId = dbPeriod?.payroll_runs?.[0]?.id; // Ensure we exclude this from cumulative query
 
   // Fetch Employee
   const { data: employee, error: empError } = await supabase
@@ -247,7 +252,7 @@ export async function loadPayrollContext(
   // Fetch Statutory Applicability
   const { data: applicabilityData } = await supabase
     .from('employee_statutory_profiles')
-    .select('sss_applicable, philhealth_applicable, pagibig_applicable')
+    .select('sss_applicable, philhealth_applicable, pagibig_applicable, tax_applicable, is_mwe')
     .eq('employee_id', employeeId)
     .lte('effective_from', periodData.period_end)
     .or(`effective_to.is.null,effective_to.gte.${periodData.period_start}`)
@@ -258,7 +263,9 @@ export async function loadPayrollContext(
   const statutoryApplicability = {
     sss: applicabilityData?.sss_applicable ?? true,
     philhealth: applicabilityData?.philhealth_applicable ?? true,
-    pagibig: applicabilityData?.pagibig_applicable ?? true
+    pagibig: applicabilityData?.pagibig_applicable ?? true,
+    tax: applicabilityData?.tax_applicable ?? true,
+    is_mwe: applicabilityData?.is_mwe ?? false
   };
 
   // Fetch Active Work Policy
@@ -282,6 +289,80 @@ export async function loadPayrollContext(
     if (cwps && cwps.length > 0) activePolicy = cwps[0];
   }
 
+  // Fetch active cash advances
+  const { data: cashAdvancesData } = await supabase
+    .from('cash_advances')
+    .select('*')
+    .eq('employee_id', employeeId)
+    .in('status', ['Active', 'Partially Paid'])
+    .lte('date', periodData.period_end);
+
+  const cashAdvances = cashAdvancesData?.map((ca: any) => ({
+    id: ca.id,
+    amount: new Decimal(ca.amount),
+    repayment_amount_per_payroll: new Decimal(ca.repayment_amount_per_payroll),
+    remaining_balance: new Decimal(ca.remaining_balance),
+    reason: ca.reason
+  })) || [];
+
+  // Fetch Statutory Allocations
+  let statutoryAllocation = {
+    sss_percentage: new Decimal(0),
+    philhealth_percentage: new Decimal(0),
+    pagibig_percentage: new Decimal(0)
+  };
+  
+  if (periodData.statutory_schedule_id && periodData.period_sequence) {
+    const { data: allocData } = await supabase
+      .from('statutory_schedule_allocations')
+      .select('contribution_type, allocation_percentage')
+      .eq('schedule_id', periodData.statutory_schedule_id)
+      .eq('period_sequence', periodData.period_sequence);
+      
+    if (allocData) {
+      for (const a of allocData) {
+        if (a.contribution_type === 'SSS') statutoryAllocation.sss_percentage = new Decimal(a.allocation_percentage);
+        if (a.contribution_type === 'PhilHealth') statutoryAllocation.philhealth_percentage = new Decimal(a.allocation_percentage);
+        if (a.contribution_type === 'Pag-IBIG') statutoryAllocation.pagibig_percentage = new Decimal(a.allocation_percentage);
+      }
+    }
+  }
+
+  // Fetch Cumulative Statutory Deductions for the same employee + contribution month
+  let cumulativeStatutoryDeductions = {
+    sss: new Decimal(0),
+    philhealth: new Decimal(0),
+    pagibig: new Decimal(0)
+  };
+
+  if (periodData.contribution_month) {
+    let query = supabase
+      .from('payroll_items')
+      .select(`
+        payroll_deductions(description, amount),
+        payroll_runs!inner(id, status, payroll_periods!inner(contribution_month))
+      `)
+      .eq('employee_id', employeeId)
+      .eq('payroll_runs.payroll_periods.contribution_month', periodData.contribution_month)
+      .in('payroll_runs.status', ['Approved', 'Paid']);
+      
+    if (currentRunId) {
+      query = query.neq('payroll_run_id', currentRunId);
+    }
+    
+    const { data: pastItems } = await query;
+
+    if (pastItems) {
+      for (const item of pastItems) {
+        for (const ded of item.payroll_deductions) {
+          if (ded.description === 'SSS') cumulativeStatutoryDeductions.sss = cumulativeStatutoryDeductions.sss.plus(ded.amount);
+          if (ded.description === 'PhilHealth') cumulativeStatutoryDeductions.philhealth = cumulativeStatutoryDeductions.philhealth.plus(ded.amount);
+          if (ded.description === 'Pag-IBIG') cumulativeStatutoryDeductions.pagibig = cumulativeStatutoryDeductions.pagibig.plus(ded.amount);
+        }
+      }
+    }
+  }
+
   return {
     employee: empData,
     period: periodData,
@@ -291,12 +372,15 @@ export async function loadPayrollContext(
     holidays: [],
     adjustments: [], // No manual adjustments initially
     overrides: [],
+    cashAdvances,
     taxConfig,
     sssConfig,
     philhealthConfig,
     pagibigConfig,
     activePolicy,
-    statutoryApplicability
+    statutoryApplicability,
+    statutoryAllocation,
+    cumulativeStatutoryDeductions
   };
 }
 

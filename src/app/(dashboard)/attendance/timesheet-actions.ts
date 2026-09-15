@@ -5,11 +5,10 @@ import { revalidatePath } from "next/cache"
 import { parseISO, eachDayOfInterval, format } from "date-fns"
 import Decimal from "decimal.js"
 
-export async function getOrCreatePayrollPeriod(periodStart: string, periodEnd: string, payFrequency: string) {
+export async function getPayrollPeriod(periodStart: string, periodEnd: string, payFrequency: string) {
   const supabase = await createClient()
   
-  // 1. Try to find existing
-  const { data: existing, error: err } = await supabase
+  const { data: existing } = await supabase
     .from('payroll_periods')
     .select('*')
     .eq('period_start', periodStart)
@@ -17,22 +16,66 @@ export async function getOrCreatePayrollPeriod(periodStart: string, periodEnd: s
     .eq('pay_frequency', payFrequency)
     .single()
 
-  if (existing) return existing
+  return existing || null
+}
 
-  // 2. Create if not exists (assume Draft)
+export async function createPayrollPeriodWithConfig(data: {
+  period_start: string
+  period_end: string
+  pay_frequency: string
+  statutory_schedule_id: string
+  period_sequence: number
+  contribution_month: string
+}) {
+  const supabase = await createClient()
+
   const { data: newPeriod, error: insertErr } = await supabase
     .from('payroll_periods')
     .insert({
-      period_start: periodStart,
-      period_end: periodEnd,
-      pay_frequency: payFrequency,
-      pay_date: periodEnd // default pay date to period end
+      period_start: data.period_start,
+      period_end: data.period_end,
+      pay_frequency: data.pay_frequency,
+      pay_date: data.period_end, // default
+      statutory_schedule_id: data.statutory_schedule_id,
+      period_sequence: data.period_sequence,
+      contribution_month: data.contribution_month
     })
     .select()
     .single()
 
-  if (insertErr) throw new Error(insertErr.message)
-  return newPeriod
+  if (insertErr) return { success: false, error: insertErr.message }
+  return { success: true, period: newPeriod }
+}
+
+export async function updatePayrollPeriodConfig(periodId: string, data: {
+  statutory_schedule_id: string
+  period_sequence: number
+  contribution_month: string
+}) {
+  const supabase = await createClient()
+  
+  const { error } = await supabase
+    .from('payroll_periods')
+    .update({
+      statutory_schedule_id: data.statutory_schedule_id,
+      period_sequence: data.period_sequence,
+      contribution_month: data.contribution_month
+    })
+    .eq('id', periodId)
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+export async function getActiveSchedules(payFrequency: string) {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('company_statutory_schedules')
+    .select('id, name')
+    .eq('pay_frequency', payFrequency)
+    .eq('is_active', true)
+    
+  return data || []
 }
 
 export async function fetchTimesheets(payrollPeriodId: string) {
@@ -194,14 +237,23 @@ export async function generateTimesheets(payrollPeriodId: string) {
       let payableUt = 0
 
       if (rec && ['Present', 'Work From Home', 'Holiday'].includes(rec.status)) {
-         regularHours = (rec.regular_hours != null && rec.regular_hours > 0) ? rec.regular_hours : scheduledHours
-         if (regularHours > scheduledHours) regularHours = scheduledHours // enforce constraint
+         let actualHours = (rec.regular_hours != null && rec.regular_hours > 0) ? rec.regular_hours : scheduledHours
          
-         recordedOt = rec.overtime_hours || 0
+         if (actualHours > scheduledHours) {
+           regularHours = scheduledHours
+           recordedOt = (actualHours - scheduledHours) + (rec.overtime_hours || 0)
+           recordedUt = 0
+         } else if (actualHours < scheduledHours) {
+           regularHours = actualHours
+           recordedOt = rec.overtime_hours || 0
+           recordedUt = scheduledHours - actualHours
+         } else {
+           regularHours = scheduledHours
+           recordedOt = rec.overtime_hours || 0
+           recordedUt = 0
+         }
+         
          payableOt = requiresApproval ? 0 : recordedOt // Auto-approve if policy says so
-         
-         // In future imports we can extract UT from notes or if we add a column. For now it's 0.
-         recordedUt = 0
          payableUt = recordedUt
          
          total_regular_hours = total_regular_hours.plus(regularHours)

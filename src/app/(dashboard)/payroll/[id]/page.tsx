@@ -11,7 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import DiagnosticsTab from "./diagnostics-tab"
 
 export default async function PayrollRunDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -119,111 +120,124 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-6">
-          <Card className="bg-white rounded-xl border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">Employee Details</h3>
-              <div className="text-sm text-slate-500 font-medium">Total Items: {items?.length || 0}</div>
-            </div>
+          <Tabs defaultValue="register" className="w-full">
+            <TabsList className="bg-slate-100 border border-slate-200 p-1 rounded-lg mb-4">
+              <TabsTrigger value="register" className="rounded-md px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Payroll Register</TabsTrigger>
+              <TabsTrigger value="diagnostics" className="rounded-md px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Diagnostics & Reconciliation</TabsTrigger>
+            </TabsList>
             
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
-                  <tr>
-                    <th className="px-6 py-3 font-medium">Employee</th>
-                    <th className="px-6 py-3 font-medium text-right">Gross Pay</th>
-                    <th className="px-6 py-3 font-medium text-right">Deductions</th>
-                    <th className="px-6 py-3 font-medium text-right text-emerald-600">Net Pay</th>
-                    <th className="px-6 py-3 font-medium text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {(!items || items.length === 0) ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
-                        <FileText className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-                        <p>No items found for this payroll run.</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    items.map(item => (
-                      <tr key={item.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-slate-900">
-                            {(item.employees as any)?.first_name} {(item.employees as any)?.last_name}
-                          </div>
-                          <div className="text-xs text-slate-500">{(item.employees as any)?.employee_code}</div>
-                        </td>
-                        <td className="px-6 py-4 text-right font-medium">
-                          ₱{Number(item.gross_pay).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                        </td>
-                        <td className="px-6 py-4 text-right text-red-500">
-                          - ₱{Number(item.total_deductions).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                        </td>
-                        <td className="px-6 py-4 text-right font-bold text-emerald-600">
-                          ₱{Number(item.net_pay).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <Dialog>
-                            <DialogTrigger className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                              <Eye className="w-3.5 h-3.5" />
-                              Details
-                            </DialogTrigger>
-                            <DialogContent className="max-w-md">
-                              <DialogHeader>
-                                <DialogTitle>Calculation Breakdown - {(item.employees as any)?.first_name} {(item.employees as any)?.last_name}</DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-6 py-4">
-                                <div>
-                                  <h4 className="text-sm font-semibold text-slate-900 mb-2 pb-2 border-b border-slate-100">Earnings</h4>
-                                  <div className="space-y-3">
-                                    {(item as any).payroll_earnings?.map((e: any) => (
-                                      <EarningOverridePanel
-                                        key={e.id}
-                                        earning={e}
-                                        payrollRunId={run.id}
-                                        isLocked={run.status === 'Approved' || run.status === 'Paid'}
-                                      />
-                                    ))}
-                                    {(!(item as any).payroll_earnings || (item as any).payroll_earnings.length === 0) && (
-                                      <p className="text-sm text-slate-500 italic">No earnings found.</p>
-                                    )}
-                                  </div>
-                                </div>
-                                
-                                <div>
-                                  <h4 className="text-sm font-semibold text-slate-900 mb-2 pb-2 border-b border-slate-100">Deductions</h4>
-                                  <div className="space-y-2">
-                                    {(item as any).payroll_deductions?.map((d: any, i: number) => (
-                                      <div key={i} className="flex justify-between text-sm">
-                                        <span className="text-slate-600">{d.description}</span>
-                                        {Number(d.amount) === 0 && d.description.includes('Not Applicable') ? (
-                                          <span className="font-medium text-slate-500">Not Applicable</span>
-                                        ) : (
-                                          <span className="font-medium text-red-600">-₱{Number(d.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+            <TabsContent value="register" className="mt-0">
+              <Card className="bg-white rounded-xl border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-slate-900">Employee Details</h3>
+                  <div className="text-sm text-slate-500 font-medium">Total Items: {items?.length || 0}</div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
+                      <tr>
+                        <th className="px-6 py-3 font-medium">Employee</th>
+                        <th className="px-6 py-3 font-medium text-right">Gross Pay</th>
+                        <th className="px-6 py-3 font-medium text-right">Deductions</th>
+                        <th className="px-6 py-3 font-medium text-right text-emerald-600">Net Pay</th>
+                        <th className="px-6 py-3 font-medium text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(!items || items.length === 0) ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                            <FileText className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                            <p>No items found for this payroll run.</p>
+                          </td>
+                        </tr>
+                      ) : (
+                        items.map(item => (
+                          <tr key={item.id} className="hover:bg-slate-50">
+                            <td className="px-6 py-4">
+                              <div className="font-medium text-slate-900">
+                                {(item.employees as any)?.first_name} {(item.employees as any)?.last_name}
+                              </div>
+                              <div className="text-xs text-slate-500">{(item.employees as any)?.employee_code}</div>
+                            </td>
+                            <td className="px-6 py-4 text-right font-medium">
+                              ₱{Number(item.gross_pay).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                            </td>
+                            <td className="px-6 py-4 text-right text-red-500">
+                              - ₱{Number(item.total_deductions).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                            </td>
+                            <td className="px-6 py-4 text-right font-bold text-emerald-600">
+                              ₱{Number(item.net_pay).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <Dialog>
+                                <DialogTrigger className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                                  <Eye className="w-3.5 h-3.5" />
+                                  Details
+                                </DialogTrigger>
+                                <DialogContent className="max-w-md">
+                                  <DialogHeader>
+                                    <DialogTitle>Calculation Breakdown - {(item.employees as any)?.first_name} {(item.employees as any)?.last_name}</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="space-y-6 py-4">
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-slate-900 mb-2 pb-2 border-b border-slate-100">Earnings</h4>
+                                      <div className="space-y-3">
+                                        {(item as any).payroll_earnings?.map((e: any) => (
+                                          <EarningOverridePanel
+                                            key={e.id}
+                                            earning={e}
+                                            payrollRunId={run.id}
+                                            isLocked={run.status === 'Approved' || run.status === 'Paid'}
+                                          />
+                                        ))}
+                                        {(!(item as any).payroll_earnings || (item as any).payroll_earnings.length === 0) && (
+                                          <p className="text-sm text-slate-500 italic">No earnings found.</p>
                                         )}
                                       </div>
-                                    ))}
-                                    {(!(item as any).payroll_deductions || (item as any).payroll_deductions.length === 0) && (
-                                      <p className="text-sm text-slate-500 italic">No deductions found.</p>
-                                    )}
-                                  </div>
-                                </div>
+                                    </div>
+                                    
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-slate-900 mb-2 pb-2 border-b border-slate-100">Deductions</h4>
+                                      <div className="space-y-2">
+                                        {(item as any).payroll_deductions?.map((d: any, i: number) => (
+                                          <div key={i} className="flex justify-between text-sm">
+                                            <span className="text-slate-600">{d.description}</span>
+                                            {Number(d.amount) === 0 && d.description.includes('Not Applicable') ? (
+                                              <span className="font-medium text-slate-500">Not Applicable</span>
+                                            ) : (
+                                              <span className="font-medium text-red-600">-₱{Number(d.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                            )}
+                                          </div>
+                                        ))}
+                                        {(!(item as any).payroll_deductions || (item as any).payroll_deductions.length === 0) && (
+                                          <p className="text-sm text-slate-500 italic">No deductions found.</p>
+                                        )}
+                                      </div>
+                                    </div>
 
-                                <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
-                                  <span className="font-bold text-slate-900">Net Pay</span>
-                                  <span className="text-lg font-bold text-emerald-600">₱{Number(item.net_pay).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                                </div>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+                                    <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
+                                      <span className="font-bold text-slate-900">Net Pay</span>
+                                      <span className="text-lg font-bold text-emerald-600">₱{Number(item.net_pay).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                    </div>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="diagnostics" className="mt-0">
+              <DiagnosticsTab payrollRunId={run.id} />
+            </TabsContent>
+          </Tabs>
         </div>
 
         <div className="space-y-6">

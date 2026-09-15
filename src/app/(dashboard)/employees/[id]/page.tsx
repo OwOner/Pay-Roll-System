@@ -13,6 +13,7 @@ import { AccountAccessTab } from "./account-access-tab"
 import { EmployeeAttendanceTab } from "./employee-attendance-tab"
 import { EmployeeWorkPolicyTab } from "./employee-work-policy-tab"
 import { ExemptToggle } from "./exempt-toggle"
+import { CashAdvancesTab } from "./cash-advances-tab"
 
 export default async function EmployeeProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -29,7 +30,8 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
       employee_work_policies(
         *,
         work_policies(*)
-      )
+      ),
+      cash_advances(*)
     `)
     .eq('id', id)
     .single()
@@ -136,6 +138,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
           <TabsTrigger value="work_policy">Work Policy</TabsTrigger>
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
           <TabsTrigger value="leave">Leave</TabsTrigger>
+          <TabsTrigger value="cash_advances">Cash Advances</TabsTrigger>
           <TabsTrigger value="payroll_history">Payroll History</TabsTrigger>
           <TabsTrigger value="account">Account & Access</TabsTrigger>
         </TabsList>
@@ -252,26 +255,17 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
               <Table>
                 <TableHeader className="bg-slate-50">
                   <TableRow>
-                    <TableHead className="pl-6">Effective Date</TableHead>
-                    <TableHead>End Date</TableHead>
                     <TableHead>Salary Basis</TableHead>
-                    <TableHead>Pay Frequency</TableHead>
                     <TableHead className="text-right">Rate</TableHead>
-                    <TableHead className="text-right pr-6">Daily Equivalent</TableHead>
+                    <TableHead>Pay Frequency</TableHead>
+                    <TableHead className="pl-6">Effective From</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {compensationHistory.length > 0 ? (
                     compensationHistory.sort((a: any, b: any) => new Date(b.effective_from).getTime() - new Date(a.effective_from).getTime()).map((comp: any) => (
                       <TableRow key={comp.id} className="hover:bg-slate-50">
-                        <TableCell className="pl-6 font-medium text-slate-900">{new Date(comp.effective_from).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          {comp.effective_to ? (
-                            new Date(comp.effective_to).toLocaleDateString()
-                          ) : (
-                            <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-200">Current</Badge>
-                          )}
-                        </TableCell>
                         <TableCell>
                           {comp.salary_basis ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
@@ -283,14 +277,21 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
                             </span>
                           )}
                         </TableCell>
-                        <TableCell>{comp.pay_frequency}</TableCell>
                         <TableCell className="text-right font-semibold text-slate-900">
                           {comp.salary_basis === 'Daily'   && comp.daily_rate   ? `₱${Number(comp.daily_rate).toLocaleString()}/day` : ''}
                           {comp.salary_basis === 'Weekly'  && comp.weekly_rate  ? `₱${Number(comp.weekly_rate).toLocaleString()}/wk` : ''}
                           {comp.salary_basis === 'Hourly'  && comp.hourly_rate  ? `₱${Number(comp.hourly_rate).toLocaleString()}/hr` : ''}
                           {(comp.salary_basis === 'Monthly' || !comp.salary_basis) ? `₱${Number(comp.basic_salary).toLocaleString()}/mo` : ''}
                         </TableCell>
-                        <TableCell className="text-right pr-6 text-slate-600">{comp.daily_rate ? `₱${Number(comp.daily_rate).toLocaleString()}` : '—'}</TableCell>
+                        <TableCell>{comp.pay_frequency}</TableCell>
+                        <TableCell className="pl-6 font-medium text-slate-900">{new Date(comp.effective_from).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          {comp.effective_to ? (
+                            <span className="text-slate-500 text-sm">Ended on {new Date(comp.effective_to).toLocaleDateString()}</span>
+                          ) : (
+                            <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-200">Current</Badge>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))
                   ) : (
@@ -326,6 +327,10 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
                Leave balance feature coming soon.
              </CardContent>
            </Card>
+        </TabsContent>
+
+        <TabsContent value="cash_advances" className="mt-6">
+          <CashAdvancesTab employeeId={employee.id} cashAdvances={employee.cash_advances || []} />
         </TabsContent>
 
         <TabsContent value="payroll_history" className="mt-6">
