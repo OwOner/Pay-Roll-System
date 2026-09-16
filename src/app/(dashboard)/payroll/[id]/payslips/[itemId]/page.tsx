@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { Printer } from "lucide-react"
+import { SYSTEM_DEDUCTION_DESCRIPTIONS, STATUTORY_DEDUCTION_DESCRIPTIONS } from "@/lib/payroll/constants"
 
 export default async function PayslipPage({ params }: { params: Promise<{ id: string, itemId: string }> }) {
   const { id: runId, itemId } = await params
@@ -31,18 +32,17 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
       ),
       payroll_earnings (
         id,
-        type,
         description,
         amount,
         is_taxable,
-        tax_treatment
+        tax_treatment,
+        source
       ),
       payroll_deductions (
         id,
-        type,
         description,
         amount,
-        is_pre_tax
+        source
       )
     `)
     .eq('id', itemId)
@@ -65,9 +65,9 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
   const nonTaxableEarnings = earnings.filter(e => !e.is_taxable)
 
   // Categorize Deductions
-  const statutoryDeductions = deductions.filter(d => d.is_pre_tax)
-  const withholdingTax = deductions.find(d => d.type === 'Tax')
-  const postTaxDeductions = deductions.filter(d => !d.is_pre_tax && d.type !== 'Tax')
+  const statutoryDeductions = deductions.filter(d => STATUTORY_DEDUCTION_DESCRIPTIONS.includes(d.description))
+  const withholdingTax = deductions.find(d => d.description === SYSTEM_DEDUCTION_DESCRIPTIONS.TAX)
+  const postTaxDeductions = deductions.filter(d => !STATUTORY_DEDUCTION_DESCRIPTIONS.includes(d.description) && d.description !== SYSTEM_DEDUCTION_DESCRIPTIONS.TAX)
 
   const formatMoney = (amount: number) => {
     return Number(amount).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })

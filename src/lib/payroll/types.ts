@@ -139,6 +139,8 @@ export interface Timesheet {
   total_recorded_ut_hours: Decimal;
   total_payable_ut_hours: Decimal;
   absent_days: Decimal;
+  calculated_present_days?: Decimal;
+  overridden_present_days?: Decimal;
   status: string;
   details?: TimesheetDetail[];
 }

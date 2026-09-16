@@ -34,8 +34,6 @@ export function calculatePayroll(context: PayrollContext, activePolicy?: WorkPol
   earnings.push(...attendanceResult.earnings);
   deductions.push(...attendanceResult.deductions);
   
-  // (In a real system, we also calculate Paid Leave here if not fully embedded in attendanceResult)
-  
   const adjResult = calculateAdjustments(context);
   earnings.push(...adjResult.earnings);
   deductions.push(...adjResult.deductions);

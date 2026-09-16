@@ -5,6 +5,7 @@ import {
   EmployeeCompensation,
   DeductionResult
 } from "./types";
+import { SYSTEM_EARNING_DESCRIPTIONS } from "./constants";
 import { resolveDayRule, DayType } from "./day-rules";
 import { deriveHourlyRate, WorkPolicy } from "./rate-calculator";
 
@@ -103,7 +104,7 @@ export function calculateAttendanceBasedPay(
   if (totalRegularEarnings.greaterThan(0)) {
     earnings.push({
       type: "Basic Pay",
-      description: "Basic Salary (Calculated)",
+      description: SYSTEM_EARNING_DESCRIPTIONS.BASIC_SALARY,
       amount: totalRegularEarnings,
       is_taxable: true,
       is_sss_covered: true,

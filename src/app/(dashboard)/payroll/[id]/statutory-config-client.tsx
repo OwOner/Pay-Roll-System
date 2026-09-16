@@ -210,7 +210,7 @@ function PeriodSetupModal({
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Which payroll in this cycle is this?</label>
-            <Select value={sequence} onValueChange={setSequence} required>
+            <Select value={sequence} onValueChange={(v) => { if(v) setSequence(v) }} required>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {renderSequences()}
@@ -220,7 +220,7 @@ function PeriodSetupModal({
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Select Statutory Schedule</label>
-            <Select value={scheduleId} onValueChange={setScheduleId} required>
+            <Select value={scheduleId} onValueChange={(v) => { if(v) setScheduleId(v) }} required>
               <SelectTrigger><SelectValue placeholder="Select a schedule" /></SelectTrigger>
               <SelectContent>
                 {schedules.map(s => (

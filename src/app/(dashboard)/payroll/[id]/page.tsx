@@ -4,7 +4,9 @@ import { Card } from "@/components/ui/card"
 import { AlertCircle, CheckCircle, Clock, XCircle, FileText, ChevronRight, Eye } from "lucide-react"
 import Link from "next/link"
 import PayrollActions from "./actions-client"
+import StatutoryWarningBlock from "./statutory-warning-block"
 import { EarningOverridePanel } from "./earning-override-panel"
+import PayrollItemExclusionAction from "./item-exclusion-action"
 import {
   Dialog,
   DialogContent,
@@ -57,6 +59,8 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
       gross_pay,
       net_pay,
       total_deductions,
+      is_excluded,
+      exclusion_reason,
       employees ( first_name, last_name, employee_code ),
       payroll_earnings (
         id,
@@ -82,6 +86,41 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
       case 'Paid': return <CheckCircle className="w-8 h-8 text-emerald-600" />
       case 'Rejected': return <XCircle className="w-8 h-8 text-red-600" />
       default: return <Clock className="w-8 h-8 text-slate-400" />
+    }
+  }
+
+  // 3. Check for double-counted adjustments (Claimed by another run)
+  let hasClaimedAdjustments = false
+  if (run.status === 'Draft' || run.status === 'Pending Approval') {
+    const itemIds = items?.map(i => i.id) || []
+    if (itemIds.length > 0) {
+      const { data: adjEarnings } = await supabase
+        .from('payroll_earnings')
+        .select('source_id')
+        .eq('source', 'payroll_adjustments')
+        .in('payroll_item_id', itemIds)
+
+      const { data: adjDeductions } = await supabase
+        .from('payroll_deductions')
+        .select('source_id')
+        .eq('source', 'payroll_adjustments')
+        .in('payroll_item_id', itemIds)
+        
+      const sourceIds = [...(adjEarnings || []), ...(adjDeductions || [])]
+        .map(a => a.source_id)
+        .filter(Boolean)
+      
+      if (sourceIds.length > 0) {
+        const { data: processedAdjs } = await supabase
+          .from('payroll_adjustments')
+          .select('id')
+          .in('id', sourceIds)
+          .eq('status', 'Processed')
+          
+        if (processedAdjs && processedAdjs.length > 0) {
+          hasClaimedAdjustments = true
+        }
+      }
     }
   }
 
@@ -119,7 +158,6 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
         <PayrollActions 
           runId={run.id} 
           status={run.status} 
-          periodId={payrollRun.payroll_period_id} 
         />
       </div>
 
@@ -130,6 +168,19 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
         periodStart={payrollRun.payroll_periods.period_start}
         periodEnd={payrollRun.payroll_periods.period_end}
       />
+
+      {hasClaimedAdjustments && (
+        <div className="p-4 rounded-xl border border-red-200 bg-red-50 flex items-start gap-3 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+          <div>
+            <h4 className="font-semibold text-red-900">Adjustment Conflict Detected</h4>
+            <p className="text-sm mt-1 text-red-700">
+              This run contains manual adjustments that have already been processed and paid out in another approved payroll run. 
+              You must reject or delete this draft and regenerate it to ensure accurate adjustment balances before approval.
+            </p>
+          </div>
+        </div>
+      )}
 
 
       <div className="grid gap-6 md:grid-cols-3">
@@ -167,13 +218,23 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
                           </td>
                         </tr>
                       ) : (
-                        items.map(item => (
-                          <tr key={item.id} className="hover:bg-slate-50">
+                        items.map((item: any) => (
+                          <tr key={item.id} className={`hover:bg-slate-50 ${item.is_excluded ? 'opacity-50 grayscale bg-slate-50' : ''}`}>
                             <td className="px-6 py-4">
-                              <div className="font-medium text-slate-900">
-                                {(item.employees as any)?.first_name} {(item.employees as any)?.last_name}
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-900">
+                                  {(item.employees as any)?.first_name} {(item.employees as any)?.last_name}
+                                </span>
+                                {item.is_excluded && (
+                                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 border border-slate-200">
+                                    Excluded
+                                  </span>
+                                )}
                               </div>
-                              <div className="text-xs text-slate-500">{(item.employees as any)?.employee_code}</div>
+                              <div className="text-xs text-slate-500 mt-1">{(item.employees as any)?.employee_code}</div>
+                              {item.is_excluded && item.exclusion_reason && (
+                                <div className="text-xs text-slate-500 mt-1 italic">Reason: {item.exclusion_reason}</div>
+                              )}
                             </td>
                             <td className="px-6 py-4 text-right font-medium">
                               ₱{Number(item.gross_pay).toLocaleString(undefined, {minimumFractionDigits: 2})}
@@ -246,6 +307,15 @@ export default async function PayrollRunDetailsPage({ params }: { params: Promis
                                 <FileText className="w-3.5 h-3.5" />
                                 Payslip
                               </Link>
+                              
+                              <div className="ml-2">
+                                <PayrollItemExclusionAction 
+                                  itemId={item.id} 
+                                  runId={run.id} 
+                                  status={run.status} 
+                                  isExcluded={item.is_excluded} 
+                                />
+                              </div>
                             </td>
                           </tr>
                         ))

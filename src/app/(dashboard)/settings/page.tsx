@@ -4,9 +4,31 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 
+import { revalidatePath } from "next/cache"
+
 export default async function CompanySettingsPage() {
   const supabase = await createClient()
   const { data: settings } = await supabase.from('company_settings').select('*').single()
+
+  async function saveSettings(formData: FormData) {
+    "use server"
+    const supabaseServer = await createClient()
+    const updates = {
+      company_name: formData.get("company_name"),
+      tin: formData.get("tin"),
+      address: formData.get("address"),
+      email: formData.get("email"),
+      phone: formData.get("phone")
+    }
+
+    if (settings?.id) {
+      await supabaseServer.from("company_settings").update(updates).eq("id", settings.id)
+    } else {
+      await supabaseServer.from("company_settings").insert(updates)
+    }
+    
+    revalidatePath("/settings")
+  }
 
   return (
     <Card>
@@ -17,7 +39,7 @@ export default async function CompanySettingsPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form className="space-y-4">
+        <form action={saveSettings} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="company_name">Company Name</Label>
             <Input id="company_name" name="company_name" defaultValue={settings?.company_name || ""} placeholder="Nexus Corporation" />
@@ -40,7 +62,7 @@ export default async function CompanySettingsPage() {
               <Input id="phone" name="phone" defaultValue={settings?.phone || ""} placeholder="+63 2 8123 4567" />
             </div>
           </div>
-          <Button type="button">Save Settings</Button>
+          <Button type="submit">Save Settings</Button>
         </form>
       </CardContent>
     </Card>

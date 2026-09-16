@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { PayrollContext, DeductionResult } from "./types";
+import { SYSTEM_DEDUCTION_DESCRIPTIONS } from "./constants";
 
 /**
  * Calculates SSS contributions based on the applicable Monthly Salary Credit bracket.
@@ -15,7 +16,7 @@ export function calculateSSS(
   if (!context.statutoryApplicability?.sss) {
     deductions.push({
       type: 'SSS',
-      description: 'SSS (Not Applicable)',
+      description: SYSTEM_DEDUCTION_DESCRIPTIONS.SSS_NOT_APPLICABLE,
       amount: new Decimal(0),
       employer_amount: new Decimal(0)
     });
@@ -50,7 +51,7 @@ export function calculateSSS(
     if (applicableBracket.regular_ss_employee.greaterThan(0) || applicableBracket.regular_ss_employer.greaterThan(0)) {
       deductions.push({
         type: "SSS",
-        description: "SSS Regular Contribution",
+        description: SYSTEM_DEDUCTION_DESCRIPTIONS.SSS_REGULAR,
         amount: applicableBracket.regular_ss_employee,
         employer_amount: applicableBracket.regular_ss_employer,
         is_pre_tax: true,
@@ -63,7 +64,7 @@ export function calculateSSS(
     if (applicableBracket.mpf_employee.greaterThan(0) || applicableBracket.mpf_employer.greaterThan(0)) {
       deductions.push({
         type: "SSS",
-        description: "SSS WISP (MPF)",
+        description: SYSTEM_DEDUCTION_DESCRIPTIONS.SSS_WISP,
         amount: applicableBracket.mpf_employee,
         employer_amount: applicableBracket.mpf_employer,
         is_pre_tax: true,
@@ -76,7 +77,7 @@ export function calculateSSS(
     if (applicableBracket.ec_employer.greaterThan(0)) {
       deductions.push({
         type: "SSS",
-        description: "SSS EC (Employer Paid)",
+        description: SYSTEM_DEDUCTION_DESCRIPTIONS.SSS_EC,
         amount: new Decimal(0), // Employee pays 0
         employer_amount: applicableBracket.ec_employer,
         is_pre_tax: false, // Employer only, doesn't reduce employee tax
@@ -104,7 +105,7 @@ export function calculatePhilHealth(
   if (!context.statutoryApplicability?.philhealth) {
     deductions.push({
       type: 'PhilHealth',
-      description: 'PhilHealth (Not Applicable)',
+      description: SYSTEM_DEDUCTION_DESCRIPTIONS.PHILHEALTH_NOT_APPLICABLE,
       amount: new Decimal(0),
       employer_amount: new Decimal(0)
     });
@@ -138,7 +139,7 @@ export function calculatePhilHealth(
   if (employeeShare.greaterThan(0) || employerShare.greaterThan(0)) {
     deductions.push({
       type: "PhilHealth",
-      description: "PhilHealth Premium",
+      description: SYSTEM_DEDUCTION_DESCRIPTIONS.PHILHEALTH_PREMIUM,
       amount: employeeShare,
       employer_amount: employerShare,
       is_pre_tax: true,
@@ -163,7 +164,7 @@ export function calculatePagIBIG(
   if (!context.statutoryApplicability?.pagibig) {
     deductions.push({
       type: 'Pag-IBIG',
-      description: 'Pag-IBIG (Not Applicable)',
+      description: SYSTEM_DEDUCTION_DESCRIPTIONS.PAGIBIG_NOT_APPLICABLE,
       amount: new Decimal(0),
       employer_amount: new Decimal(0)
     });
@@ -197,7 +198,7 @@ export function calculatePagIBIG(
   if (employeeShare.greaterThan(0) || employerShare.greaterThan(0)) {
     deductions.push({
       type: "Pag-IBIG",
-      description: "Pag-IBIG Contribution",
+      description: SYSTEM_DEDUCTION_DESCRIPTIONS.PAGIBIG_CONTRIBUTION,
       amount: employeeShare,
       employer_amount: employerShare,
       is_pre_tax: true,

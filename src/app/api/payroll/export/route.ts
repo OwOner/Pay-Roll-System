@@ -84,14 +84,16 @@ export async function GET(request: Request) {
     netPay: 0
   }
 
-  for (const item of items || []) {
+  const activeItems = (items || []).filter((item: any) => !item.is_excluded)
+
+  for (const item of activeItems) {
     const emp = item.employees as any
     const fullName = `${emp?.first_name || ''} ${emp?.last_name || ''}`.trim()
     const earnings = item.payroll_earnings || []
     const deductions = item.payroll_deductions || []
     const timesheet = timesheets?.find(t => t.employee_id === emp.id)
 
-    const daysWorked = timesheet ? Number(timesheet.total_regular_hours || 0) / 8 : 0
+    const daysWorked = timesheet ? Number(timesheet.calculated_present_days || 0) : 0
 
     let basicPay = 0
     let otPay = 0

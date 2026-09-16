@@ -33,9 +33,9 @@ export default async function StatutoryWarningBlock({
             <strong>{eligibleEmployeesCount} {eligibleEmployeesCount === 1 ? 'employee is' : 'employees are'}</strong> configured for statutory deductions:
           </p>
           <ul className="list-disc pl-5 text-orange-800 space-y-1 mb-6 font-medium">
-            <li>SSS · {breakdown.sss} {breakdown.sss === 1 ? 'employee' : 'employees'}</li>
-            <li>PhilHealth · {breakdown.philhealth} {breakdown.philhealth === 1 ? 'employee' : 'employees'}</li>
-            <li>Pag-IBIG · {breakdown.pagibig} {breakdown.pagibig === 1 ? 'employee' : 'employees'}</li>
+            <li>SSS · {breakdown?.sss || 0} {(breakdown?.sss || 0) === 1 ? 'employee' : 'employees'}</li>
+            <li>PhilHealth · {breakdown?.philhealth || 0} {(breakdown?.philhealth || 0) === 1 ? 'employee' : 'employees'}</li>
+            <li>Pag-IBIG · {breakdown?.pagibig || 0} {(breakdown?.pagibig || 0) === 1 ? 'employee' : 'employees'}</li>
           </ul>
           
           <p className="text-orange-800 mb-6 font-medium">

@@ -94,7 +94,7 @@ export async function AppSidebar() {
   })
 
   return (
-    <Sidebar>
+    <Sidebar className="print:hidden">
       <SidebarHeader className="p-4 border-b">
         <h2 className="text-xl font-bold tracking-tight">Nexus Payroll</h2>
       </SidebarHeader>

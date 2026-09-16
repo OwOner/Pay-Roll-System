@@ -16,22 +16,22 @@ const mockTaxConfig: TaxTableConfig = {
 };
 
 // Mock Attendance-Based Pay
-jest.mock("../earnings", () => ({
-  ...jest.requireActual("../earnings"),
-  calculateAttendanceBasedPay: jest.fn(),
-  calculateAdjustments: jest.fn(() => []),
-  getActiveCompensation: jest.fn(() => ({ salary_basis: "Monthly", basic_salary: new Decimal(20000) }))
+vi.mock("../earnings", () => ({
+  ...vi.importActual("../earnings"),
+  calculateAttendanceBasedPay: vi.fn(),
+  calculateAdjustments: vi.fn(() => ({ earnings: [], deductions: [] })),
+  getActiveCompensation: vi.fn(() => ({ salary_basis: "Monthly", basic_salary: new Decimal(20000) }))
 }));
 
 // Mock Contributions
-jest.mock("../contributions", () => ({
-  calculateSSS: jest.fn(() => []),
-  calculatePhilHealth: jest.fn(() => []),
-  calculatePagIBIG: jest.fn(() => [])
+vi.mock("../contributions", () => ({
+  calculateSSS: vi.fn(() => []),
+  calculatePhilHealth: vi.fn(() => []),
+  calculatePagIBIG: vi.fn(() => [])
 }));
 
-const { calculateAttendanceBasedPay } = jest.requireMock("../earnings");
-const { calculateSSS, calculatePhilHealth, calculatePagIBIG } = jest.requireMock("../contributions");
+const { calculateAttendanceBasedPay } = vi.mocked(await import("../earnings"));
+const { calculateSSS, calculatePhilHealth, calculatePagIBIG } = vi.mocked(await import("../contributions"));
 
 function createContext(isMwe: boolean = false, tax_applicable: boolean = true): PayrollContext {
   return {
@@ -61,7 +61,7 @@ function createContext(isMwe: boolean = false, tax_applicable: boolean = true): 
 
 describe("Engine Tax Extraction - Phase 6A Task 3", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     calculateSSS.mockReturnValue([]);
     calculatePhilHealth.mockReturnValue([]);
     calculatePagIBIG.mockReturnValue([]);

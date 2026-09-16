@@ -5,6 +5,7 @@ import { approvePayrollRun, rejectPayrollRun, markPayrollPaid, submitDraftForApp
 import { Loader2, Check, X, Banknote, Send, Trash, FileText, Download } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 import { getPayrollDiagnostics } from "./reconciliation-actions"
 
@@ -13,7 +14,8 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
   const [showReject, setShowReject] = useState(false)
   const [showOverride, setShowOverride] = useState(false)
   const router = useRouter()
-  void router // suppress unused-vars warning — kept at top for hooks rules compliance
+  const { toast } = useToast()
+  void router
   
   async function handleApproveAttempt() {
     setLoading(true)
@@ -21,7 +23,11 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
     setLoading(false)
 
     if (diagnostics.hasBlockingErrors) {
-      alert("Cannot approve: Blocking errors detected. Please review the Diagnostics tab.")
+      toast({
+        variant: "destructive",
+        title: "Cannot approve payroll",
+        description: "Blocking errors detected. Please review the Diagnostics tab."
+      })
       return
     }
 
@@ -33,7 +39,11 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
     // Clean payroll
     setLoading(true)
     const result = await approvePayrollRun(runId)
-    if (result.error) alert(result.error)
+    if (result.error) {
+      toast({ variant: "destructive", title: "Error", description: result.error })
+    } else {
+      toast({ title: "Success", description: "Payroll run approved successfully." })
+    }
     setLoading(false)
   }
 
@@ -42,7 +52,11 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
     setLoading(true)
     const data = new FormData(e.currentTarget)
     const result = await approvePayrollRun(runId, data.get('reason') as string)
-    if (result.error) alert(result.error)
+    if (result.error) {
+      toast({ variant: "destructive", title: "Error", description: result.error })
+    } else {
+      toast({ title: "Success", description: "Payroll run approved with overrides." })
+    }
     setLoading(false)
     setShowOverride(false)
   }
@@ -114,6 +128,21 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
           <Download className="w-4 h-4" />
           Export CSV
         </a>
+        <Link
+          href={`/payroll/${runId}/confirmation`}
+          className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+        >
+          <FileText className="w-4 h-4" />
+          Confirmation Sheet
+        </Link>
+        <Link
+          href={`/payroll/${runId}/signature-sheet`}
+          target="_blank"
+          className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+        >
+          <FileText className="w-4 h-4" />
+          Signature Sheet (Blank)
+        </Link>
         <button
           onClick={() => setShowPaid(true)}
           disabled={loading}
@@ -144,6 +173,21 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
           <Download className="w-4 h-4" />
           Export CSV
         </a>
+        <Link
+          href={`/payroll/${runId}/confirmation`}
+          className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+        >
+          <FileText className="w-4 h-4" />
+          Confirmation Sheet
+        </Link>
+        <Link
+          href={`/payroll/${runId}/signature-sheet`}
+          target="_blank"
+          className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+        >
+          <FileText className="w-4 h-4" />
+          Signature Sheet (Blank)
+        </Link>
       </div>
     )
   }
@@ -152,12 +196,27 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
   if (status === 'Draft') {
     return (
       <div className="flex gap-3">
+        <Link
+          href={`/payroll/${runId}/confirmation`}
+          className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+        >
+          <FileText className="w-4 h-4" />
+          Confirmation Sheet
+        </Link>
+        <Link
+          href={`/payroll/${runId}/signature-sheet`}
+          target="_blank"
+          className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+        >
+          <FileText className="w-4 h-4" />
+          Signature Sheet (Blank)
+        </Link>
         <button
           onClick={async () => {
             setLoading(true)
             const result = await deleteDraft(runId)
             if (result?.error) {
-              alert("Error deleting draft: " + result.error)
+              toast({ variant: "destructive", title: "Error deleting draft", description: result.error })
               setLoading(false)
             } else {
               window.location.href = '/payroll'
@@ -174,7 +233,9 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
             setLoading(true)
             const result = await submitDraftForApproval(runId)
             if (result.error) {
-              alert("Error submitting for approval: " + result.error)
+              toast({ variant: "destructive", title: "Error", description: result.error })
+            } else {
+              toast({ title: "Success", description: "Payroll submitted for approval." })
             }
             setLoading(false)
           }}
@@ -252,6 +313,36 @@ export default function PayrollActions({ runId, status }: { runId: string, statu
 
   return (
     <div className="flex gap-3">
+      <Link
+        href={`/payroll/${runId}/payslips`}
+        target="_blank"
+        className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+      >
+        <FileText className="w-4 h-4" />
+        Print Payslips
+      </Link>
+      <a
+        href={`/api/payroll/export?runId=${runId}`}
+        className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+      >
+        <Download className="w-4 h-4" />
+        Export CSV
+      </a>
+      <Link
+        href={`/payroll/${runId}/confirmation`}
+        className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+      >
+        <FileText className="w-4 h-4" />
+        Confirmation Sheet
+      </Link>
+      <Link
+        href={`/payroll/${runId}/signature-sheet`}
+        target="_blank"
+        className="inline-flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm"
+      >
+        <FileText className="w-4 h-4" />
+        Signature Sheet (Blank)
+      </Link>
       <button
         onClick={() => setShowReject(true)}
         className="inline-flex items-center gap-2 bg-white border border-red-200 text-red-600 px-4 py-2 rounded-lg font-medium hover:bg-red-50 transition-colors"

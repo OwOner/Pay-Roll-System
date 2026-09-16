@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { PayrollContext, DeductionResult } from "./types";
+import { SYSTEM_DEDUCTION_DESCRIPTIONS } from "./constants";
 
 /**
  * Calculates the Withholding Tax (BIR Annex E).
@@ -63,7 +64,7 @@ export function calculateWithholdingTax(
   if (withholdingTax.greaterThan(0)) {
     deductions.push({
       type: "Withholding Tax",
-      description: "BIR Withholding Tax",
+      description: SYSTEM_DEDUCTION_DESCRIPTIONS.TAX,
       amount: withholdingTax,
       employer_amount: new Decimal(0),
       source: "system_calc",

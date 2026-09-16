@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Loader2, Plus } from "lucide-react"
 import { updateStatutoryProfile } from "./actions"
+import { useRouter } from "next/navigation"
 
 export function StatutoryProfileManager({ 
   employeeId, 
@@ -27,6 +28,7 @@ export function StatutoryProfileManager({
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -43,6 +45,7 @@ export function StatutoryProfileManager({
     } else {
       setLoading(false)
       setOpen(false)
+      router.refresh()
     }
   }
 

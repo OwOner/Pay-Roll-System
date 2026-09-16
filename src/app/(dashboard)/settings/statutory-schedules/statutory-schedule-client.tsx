@@ -145,7 +145,7 @@ export default function StatutoryScheduleClient({ initialSchedules }: { initialS
               </div>
               <div className="space-y-2">
                 <Label>Pay Frequency</Label>
-                <Select value={formData.pay_frequency} onValueChange={v => setFormData({...formData, pay_frequency: v})} disabled={mode === 'supersede'}>
+                <Select value={formData.pay_frequency} onValueChange={v => { if(v) setFormData({...formData, pay_frequency: v}) }} disabled={mode === 'supersede'}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Weekly">Weekly</SelectItem>
@@ -261,7 +261,7 @@ export default function StatutoryScheduleClient({ initialSchedules }: { initialS
             </div>
             <div className="flex items-center gap-4">
               {table.is_active ? <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Active</Badge> : <Badge variant="secondary">Inactive</Badge>}
-              <form action={toggleStatutoryScheduleActive}>
+              <form action={async (fd) => { await toggleStatutoryScheduleActive(fd); }}>
                 <input type="hidden" name="id" value={table.id} />
                 <input type="hidden" name="is_active" value={table.is_active ? 'true' : 'false'} />
                 <Button type="submit" variant="ghost" size="sm" className={table.is_active ? 'text-red-600 hover:text-red-700 hover:bg-red-50' : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'}>
@@ -276,7 +276,7 @@ export default function StatutoryScheduleClient({ initialSchedules }: { initialS
               </Button>
 
               {!table.is_immutable && (
-                 <form action={deleteStatutorySchedule}>
+                 <form action={async (fd) => { await deleteStatutorySchedule(fd); }}>
                    <input type="hidden" name="id" value={table.id} />
                    <Button type="submit" variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
                      <Trash2 className="w-4 h-4" />

@@ -113,7 +113,7 @@ export default function PayrollPeriodConfigModal({
 
           <div className="space-y-2">
             <Label>Statutory Schedule</Label>
-            <Select value={scheduleId} onValueChange={setScheduleId}>
+            <Select value={scheduleId} onValueChange={(v) => { if(v) setScheduleId(v) }}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a schedule" />
               </SelectTrigger>

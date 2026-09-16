@@ -34,19 +34,19 @@ export default async function CompanySettingsPage() {
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="company_name">Company Name</Label>
-                <Input id="company_name" name="company_name" defaultValue={settings?.company_name} required />
+                <Input id="company_name" name="company_name" defaultValue={settings?.company_name || ""} required />
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="address">Address</Label>
-                <Input id="address" name="address" defaultValue={settings?.address} />
+                <Input id="address" name="address" defaultValue={settings?.address || ""} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
-                <Input id="email" name="email" type="email" defaultValue={settings?.email} />
+                <Input id="email" name="email" type="email" defaultValue={settings?.email || ""} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" name="phone" defaultValue={settings?.phone} />
+                <Input id="phone" name="phone" defaultValue={settings?.phone || ""} />
               </div>
             </CardContent>
           </Card>
@@ -61,19 +61,19 @@ export default async function CompanySettingsPage() {
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="tin">BIR TIN</Label>
-                <Input id="tin" name="tin" defaultValue={settings?.tin} placeholder="000-000-000-000" />
+                <Input id="tin" name="tin" defaultValue={settings?.tin || ""} placeholder="000-000-000-000" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="sss_number">SSS Employer Number</Label>
-                <Input id="sss_number" name="sss_number" defaultValue={settings?.sss_number} placeholder="00-0000000-0" />
+                <Input id="sss_number" name="sss_number" defaultValue={settings?.sss_number || ""} placeholder="00-0000000-0" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="philhealth_number">PhilHealth Employer Number</Label>
-                <Input id="philhealth_number" name="philhealth_number" defaultValue={settings?.philhealth_number} placeholder="00-000000000-0" />
+                <Input id="philhealth_number" name="philhealth_number" defaultValue={settings?.philhealth_number || ""} placeholder="00-000000000-0" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="pagibig_number">Pag-IBIG Employer Number</Label>
-                <Input id="pagibig_number" name="pagibig_number" defaultValue={settings?.pagibig_number} placeholder="0000-0000-0000" />
+                <Input id="pagibig_number" name="pagibig_number" defaultValue={settings?.pagibig_number || ""} placeholder="0000-0000-0000" />
               </div>
             </CardContent>
           </Card>

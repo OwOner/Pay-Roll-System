@@ -181,6 +181,7 @@ export async function generateTimesheets(payrollPeriodId: string) {
     let total_recorded_ut = new Decimal(0) // Not heavily populated yet but ready
     let total_payable_ut = new Decimal(0)
     let absent_days = 0
+    let present_days = 0
     let missing_records_count = 0
 
     const recordMap = new Map()
@@ -189,6 +190,8 @@ export async function generateTimesheets(payrollPeriodId: string) {
         recordMap.set(rec.work_date, rec)
         if (rec.status === 'Absent') {
           absent_days++
+        } else if (['Present', 'Work From Home'].includes(rec.status)) {
+          present_days++
         }
       }
     }
@@ -289,6 +292,9 @@ export async function generateTimesheets(payrollPeriodId: string) {
       total_payable_ot_hours: total_payable_ot.toNumber(),
       total_recorded_ut_hours: total_recorded_ut.toNumber(),
       total_payable_ut_hours: total_payable_ut.toNumber(),
+      calculated_total_regular_hours: total_regular_hours.toNumber(),
+      calculated_absent_days: absent_days,
+      calculated_present_days: present_days,
       
       absent_days: absent_days,
       updated_at: new Date().toISOString()
@@ -297,11 +303,19 @@ export async function generateTimesheets(payrollPeriodId: string) {
     let tsId = existing?.id
 
     if (existing) {
-      await supabase.from('timesheets').update(timesheetData).eq('id', tsId)
+      const { error: updateErr } = await supabase.from('timesheets').update(timesheetData).eq('id', tsId)
+      if (updateErr) {
+        console.error("Error updating timesheet:", updateErr)
+        return { success: false, error: "Database error updating timesheet: " + updateErr.message }
+      }
       // Delete existing details to replace them cleanly
       await supabase.from('timesheet_details').delete().eq('timesheet_id', tsId)
     } else {
-      const { data: newTs } = await supabase.from('timesheets').insert(timesheetData).select().single()
+      const { data: newTs, error: insertErr } = await supabase.from('timesheets').insert(timesheetData).select().single()
+      if (insertErr) {
+        console.error("Error inserting timesheet:", insertErr)
+        return { success: false, error: "Database error inserting timesheet: " + insertErr.message }
+      }
       tsId = newTs?.id
     }
 

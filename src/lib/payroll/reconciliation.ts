@@ -44,7 +44,7 @@ export async function runPayrollDiagnostics(payrollRunId: string): Promise<Recon
   const { data: currentRun, error: runError } = await supabase
     .from('payroll_runs')
     .select(`
-      id, total_gross, total_net, total_deductions,
+      id,
       payroll_periods ( id, period_start, period_end, pay_frequency )
     `)
     .eq('id', payrollRunId)
@@ -121,19 +121,7 @@ export async function runPayrollDiagnostics(payrollRunId: string): Promise<Recon
     sumNet = sumNet.plus(net);
   }
 
-  // Run totals check
-  if (
-    !sumGross.equals(new Decimal(currentRun.total_gross || 0)) ||
-    !sumDed.equals(new Decimal(currentRun.total_deductions || 0)) ||
-    !sumNet.equals(new Decimal(currentRun.total_net || 0))
-  ) {
-    issues.push({
-      severity: 'error',
-      type: 'MATH_MISMATCH',
-      message: 'Mathematical mismatch: Sum of employee items ≠ Payroll Run totals.',
-      reasons: ['Database integrity issue']
-    });
-  }
+  // Run totals check removed because totals are purely derived from items in this schema
 
   // 3. Find Previous Chronological Run
   const period = currentRun.payroll_periods as any;

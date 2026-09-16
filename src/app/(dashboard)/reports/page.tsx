@@ -94,6 +94,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <p className="text-slate-500">Payroll summaries and government remittance reports.</p>
         </div>
         <div className="flex gap-2">
+          <a href="/reports/13th-month" className="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm">
+            <CalendarDays className="w-4 h-4" /> 13th Month Report
+          </a>
           <button className="inline-flex items-center gap-2 bg-white text-slate-900 border border-slate-200 px-4 py-2 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm">
             <FileDown className="w-4 h-4" /> Export CSV
           </button>

@@ -30,6 +30,38 @@ export async function approvePayrollRun(payrollRunId: string, overrideReason?: s
     }
   }
 
+  // 0.5 Adjustment Double-Count Check
+  const itemIds = runItems?.map(i => i.id) || [];
+  if (itemIds.length > 0) {
+    const { data: adjEarnings } = await supabase
+      .from('payroll_earnings')
+      .select('source_id')
+      .eq('source', 'payroll_adjustments')
+      .in('payroll_item_id', itemIds)
+
+    const { data: adjDeductions } = await supabase
+      .from('payroll_deductions')
+      .select('source_id')
+      .eq('source', 'payroll_adjustments')
+      .in('payroll_item_id', itemIds)
+      
+    const sourceIds = [...(adjEarnings || []), ...(adjDeductions || [])]
+      .map(a => a.source_id)
+      .filter(Boolean);
+    
+    if (sourceIds.length > 0) {
+      const { data: processedAdjs } = await supabase
+        .from('payroll_adjustments')
+        .select('id')
+        .in('id', sourceIds)
+        .eq('status', 'Processed')
+        
+      if (processedAdjs && processedAdjs.length > 0) {
+        return { error: 'This run contains adjustments that have already been processed in another approved run. Please reject or delete this run and regenerate it to ensure accurate adjustment balances.' }
+      }
+    }
+  }
+
   // 1. Update status to 'Approved' and set approved_by
   const { error } = await supabase
     .from('payroll_runs')
@@ -364,3 +396,34 @@ export async function setStatutoryConfigurationStatus(periodId: string, status: 
 
   return { success: true }
 }
+
+export async function togglePayrollItemExclusion(itemId: string, runId: string, exclude: boolean, reason?: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const payload = exclude ? {
+    is_excluded: true,
+    exclusion_reason: reason || null,
+    excluded_by: user?.id,
+    excluded_at: new Date().toISOString()
+  } : {
+    is_excluded: false,
+    exclusion_reason: null,
+    excluded_by: null,
+    excluded_at: null
+  }
+
+  const { error } = await supabase
+    .from('payroll_items')
+    .update(payload)
+    .eq('id', itemId)
+
+  if (error) {
+    console.error("Error toggling item exclusion:", error)
+    return { success: false, error: error.message }
+  }
+
+  revalidatePath(`/payroll/${runId}`)
+  return { success: true }
+}
+
