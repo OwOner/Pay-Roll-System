@@ -11,7 +11,7 @@ export async function approveLeaveRequest(id: string) {
   if (!user) throw new Error("Unauthorized")
 
   const { error } = await supabase
-    .from('leave')
+    .from('leave_requests')
     .update({ 
       status: 'Approved',
       approved_by: user.id
@@ -35,7 +35,7 @@ export async function rejectLeaveRequest(id: string) {
   if (!user) throw new Error("Unauthorized")
 
   const { error } = await supabase
-    .from('leave')
+    .from('leave_requests')
     .update({ 
       status: 'Rejected',
       approved_by: user.id // using approved_by just to track who actioned it

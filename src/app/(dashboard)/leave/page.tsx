@@ -11,10 +11,11 @@ export default async function LeaveManagementPage() {
   const supabase = await createClient()
   
   const { data: leaves } = await supabase
-    .from('leave')
+    .from('leave_requests')
     .select(`
       *,
-      employees(first_name, last_name, employee_code)
+      employees(first_name, last_name, employee_code),
+      leave_types(name)
     `)
     .order('start_date', { ascending: false })
 
@@ -62,11 +63,11 @@ export default async function LeaveManagementPage() {
                         <div className="font-medium">{emp?.last_name}, {emp?.first_name}</div>
                         <div className="text-xs text-muted-foreground">{emp?.employee_code}</div>
                       </TableCell>
-                      <TableCell>{leave.leave_type}</TableCell>
+                      <TableCell>{(leave.leave_types as any)?.name}</TableCell>
                       <TableCell>
                         {new Date(leave.start_date).toLocaleDateString()} - {new Date(leave.end_date).toLocaleDateString()}
                       </TableCell>
-                      <TableCell>{leave.total_days}</TableCell>
+                      <TableCell>{leave.number_of_days}</TableCell>
                       <TableCell>
                         <Badge 
                           variant={
