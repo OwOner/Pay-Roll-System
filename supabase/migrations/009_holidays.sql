@@ -2,7 +2,7 @@
 
 -- Holiday Pay Rules (The config)
 CREATE TABLE public.holiday_pay_rules (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     holiday_type TEXT NOT NULL UNIQUE, -- e.g., 'Regular Holiday', 'Special Non-Working Holiday'
     multiplier NUMERIC(8,4) NOT NULL DEFAULT 1.0000, -- e.g., 2.0000 for 200%
     rest_day_multiplier NUMERIC(8,4) NOT NULL DEFAULT 1.0000, -- e.g., 2.6000 for Regular Holiday falling on rest day
@@ -12,7 +12,7 @@ CREATE TABLE public.holiday_pay_rules (
 
 -- Holidays (The specific calendar dates)
 CREATE TABLE public.holidays (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     holiday_date DATE NOT NULL,
     name TEXT NOT NULL,
     holiday_pay_rule_id UUID NOT NULL REFERENCES public.holiday_pay_rules(id) ON DELETE RESTRICT,

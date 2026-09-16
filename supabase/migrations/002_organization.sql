@@ -2,7 +2,7 @@
 
 -- Company Settings
 CREATE TABLE public.company_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     company_name TEXT NOT NULL,
     address TEXT,
     tin TEXT,
@@ -15,7 +15,7 @@ CREATE TABLE public.company_settings (
 
 -- Departments
 CREATE TABLE public.departments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
     description TEXT,
     manager_id UUID, -- References employees (to be added later or as foreign key deferred)
@@ -26,7 +26,7 @@ CREATE TABLE public.departments (
 
 -- Positions
 CREATE TABLE public.positions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL UNIQUE,
     department_id UUID REFERENCES public.departments(id) ON DELETE SET NULL,
     description TEXT,

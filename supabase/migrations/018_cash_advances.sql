@@ -1,6 +1,6 @@
 -- Create cash_advances table
 CREATE TABLE public.cash_advances (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
     amount NUMERIC(10, 2) NOT NULL CHECK (amount > 0),
     date DATE NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE public.cash_advances (
 
 -- Create cash_advance_repayments table
 CREATE TABLE public.cash_advance_repayments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     cash_advance_id UUID NOT NULL REFERENCES public.cash_advances(id) ON DELETE CASCADE,
     payroll_run_id UUID REFERENCES public.payroll_runs(id) ON DELETE SET NULL,
     amount NUMERIC(10, 2) NOT NULL CHECK (amount > 0),

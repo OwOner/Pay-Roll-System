@@ -2,7 +2,7 @@
 
 -- Government Contribution Tables (Versioned)
 CREATE TABLE public.government_contribution_tables (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     contribution_type TEXT NOT NULL, -- 'SSS', 'PhilHealth', 'Pag-IBIG'
     name TEXT NOT NULL, -- e.g., 'SSS 2026 Table', 'PhilHealth 5% 2026'
     effective_from DATE NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE public.government_contribution_tables (
 
 -- Government Contribution Brackets
 CREATE TABLE public.government_contribution_brackets (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     contribution_table_id UUID NOT NULL REFERENCES public.government_contribution_tables(id) ON DELETE CASCADE,
     
     salary_min NUMERIC(12,2) NOT NULL,

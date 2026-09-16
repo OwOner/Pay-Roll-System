@@ -5,7 +5,7 @@ CREATE TYPE employment_status AS ENUM ('Active', 'On Leave', 'Inactive', 'Termin
 
 -- Employees
 CREATE TABLE public.employees (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_code TEXT NOT NULL UNIQUE,
     first_name TEXT NOT NULL,
     middle_name TEXT,
@@ -38,7 +38,7 @@ CREATE TABLE public.employees (
 
 -- Employee Compensation History
 CREATE TABLE public.employee_compensation_history (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
     salary_type TEXT NOT NULL, -- e.g., 'Monthly', 'Daily', 'Hourly'
     basic_salary NUMERIC(12,2) NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE public.employee_compensation_history (
 
 -- Employee Recurring Deductions (e.g., Salary Loan)
 CREATE TABLE public.employee_deductions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
     description TEXT NOT NULL,
     amount NUMERIC(12,2) NOT NULL,

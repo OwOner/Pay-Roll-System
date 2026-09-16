@@ -2,7 +2,7 @@
 
 -- 1. Create a specific Timesheet Details table to track day types and daily totals
 CREATE TABLE public.timesheet_details (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     timesheet_id UUID NOT NULL REFERENCES public.timesheets(id) ON DELETE CASCADE,
     date DATE NOT NULL,
     

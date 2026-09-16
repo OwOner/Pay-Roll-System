@@ -2,7 +2,7 @@
 
 -- Payroll Periods
 CREATE TABLE public.payroll_periods (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     period_start DATE NOT NULL,
     period_end DATE NOT NULL,
     pay_date DATE NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE public.payroll_periods (
 
 -- Payroll Runs
 CREATE TABLE public.payroll_runs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     payroll_period_id UUID NOT NULL REFERENCES public.payroll_periods(id) ON DELETE RESTRICT,
     status TEXT NOT NULL DEFAULT 'Draft', -- 'Draft', 'Calculated', 'For Review', 'Pending Approval', 'Approved', 'Paid', 'Cancelled'
     created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -31,7 +31,7 @@ CREATE TABLE public.payroll_runs (
 
 -- Payroll Items (Individual Employee Payroll in a Run)
 CREATE TABLE public.payroll_items (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     payroll_run_id UUID NOT NULL REFERENCES public.payroll_runs(id) ON DELETE CASCADE,
     employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE RESTRICT,
     
@@ -60,7 +60,7 @@ CREATE TABLE public.payroll_items (
 
 -- Payroll Earnings
 CREATE TABLE public.payroll_earnings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     payroll_item_id UUID NOT NULL REFERENCES public.payroll_items(id) ON DELETE CASCADE,
     description TEXT NOT NULL, -- 'Basic Pay', '13th Month Pay', 'Overtime', 'Holiday Pay', 'Allowance', etc.
     amount NUMERIC(12,2) NOT NULL,
@@ -82,7 +82,7 @@ CREATE TABLE public.payroll_earnings (
 
 -- Payroll Deductions
 CREATE TABLE public.payroll_deductions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     payroll_item_id UUID NOT NULL REFERENCES public.payroll_items(id) ON DELETE CASCADE,
     description TEXT NOT NULL, -- 'SSS', 'PhilHealth', 'Pag-IBIG', 'Salary Loan', etc.
     amount NUMERIC(12,2) NOT NULL,
@@ -103,7 +103,7 @@ CREATE TABLE public.payroll_deductions (
 
 -- Payroll Adjustments (Post-Approval Corrections)
 CREATE TABLE public.payroll_adjustments (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE RESTRICT,
     reference_payroll_item_id UUID REFERENCES public.payroll_items(id) ON DELETE SET NULL,
     amount NUMERIC(12,2) NOT NULL,

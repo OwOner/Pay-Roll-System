@@ -30,7 +30,7 @@ ALTER TABLE public.government_contribution_brackets
 -- 3. Create philhealth_configs (dedicated PhilHealth config)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.philhealth_configs (
-  id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name                    TEXT NOT NULL,
   table_type              TEXT NOT NULL DEFAULT 'government'
                             CONSTRAINT ph_table_type_check CHECK (table_type IN ('government', 'custom')),
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS public.philhealth_configs (
 -- 4. Create pagibig_configs (dedicated Pag-IBIG/HDMF config)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.pagibig_configs (
-  id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name                    TEXT NOT NULL,
   table_type              TEXT NOT NULL DEFAULT 'government'
                             CONSTRAINT pagibig_table_type_check CHECK (table_type IN ('government', 'custom')),

@@ -11,7 +11,7 @@ UPDATE public.attendance_records SET last_modified_source = source WHERE last_mo
 
 -- 2. Create attendance_revisions table
 CREATE TABLE public.attendance_revisions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     attendance_record_id UUID NOT NULL REFERENCES public.attendance_records(id) ON DELETE CASCADE,
     changed_by_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     change_type TEXT NOT NULL, -- e.g., 'manual_correction', 'system_update'

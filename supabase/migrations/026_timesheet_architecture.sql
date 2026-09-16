@@ -41,7 +41,7 @@ ALTER TABLE public.timesheets ADD CONSTRAINT timesheets_emp_period_unique UNIQUE
 
 -- 3. Timesheet Status History
 CREATE TABLE public.timesheet_status_history (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     timesheet_id UUID NOT NULL REFERENCES public.timesheets(id) ON DELETE CASCADE,
     old_status TEXT,
     new_status TEXT NOT NULL,

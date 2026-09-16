@@ -12,7 +12,7 @@ CREATE TYPE daily_rate_method AS ENUM (
 
 -- Work Policies
 CREATE TABLE public.work_policies (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
     description TEXT,
     
@@ -42,7 +42,7 @@ CREATE TABLE public.work_policies (
 
 -- Employee Work Policies (Effective-dated overrides)
 CREATE TABLE public.employee_work_policies (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
     work_policy_id UUID NOT NULL REFERENCES public.work_policies(id) ON DELETE RESTRICT,
     effective_from DATE NOT NULL,

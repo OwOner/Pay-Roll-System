@@ -2,7 +2,7 @@
 
 -- 1. Create company statutory schedules table
 CREATE TABLE public.company_statutory_schedules (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pay_frequency TEXT NOT NULL, -- e.g. 'Semi-Monthly', 'Weekly', 'Monthly'
     description TEXT,
     is_active BOOLEAN NOT NULL DEFAULT true,
@@ -14,7 +14,7 @@ CREATE TABLE public.company_statutory_schedules (
 
 -- 2. Create schedule allocations
 CREATE TABLE public.statutory_schedule_allocations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     schedule_id UUID NOT NULL REFERENCES public.company_statutory_schedules(id) ON DELETE CASCADE,
     period_sequence INTEGER NOT NULL, -- e.g., 1 (1st cutoff), 2 (2nd cutoff)
     contribution_type TEXT NOT NULL, -- 'SSS', 'PhilHealth', 'Pag-IBIG'

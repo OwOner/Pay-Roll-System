@@ -2,7 +2,7 @@
 
 -- Leave Types
 CREATE TABLE public.leave_types (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE, -- e.g., 'Vacation Leave', 'Sick Leave'
     description TEXT,
     is_paid BOOLEAN NOT NULL DEFAULT true,
@@ -13,7 +13,7 @@ CREATE TABLE public.leave_types (
 
 -- Employee Leave Balances
 CREATE TABLE public.employee_leave_balances (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
     leave_type_id UUID NOT NULL REFERENCES public.leave_types(id) ON DELETE CASCADE,
     balance NUMERIC(8,2) NOT NULL DEFAULT 0.00,
@@ -24,7 +24,7 @@ CREATE TABLE public.employee_leave_balances (
 
 -- Leave Requests
 CREATE TABLE public.leave_requests (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
     leave_type_id UUID NOT NULL REFERENCES public.leave_types(id) ON DELETE CASCADE,
     start_date DATE NOT NULL,

@@ -2,7 +2,7 @@
 
 -- Attendance Records
 CREATE TABLE public.attendance_records (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
     work_date DATE NOT NULL,
     time_in TIME,
@@ -24,7 +24,7 @@ CREATE TABLE public.attendance_records (
 
 -- Timesheets (Payroll Period Summary)
 CREATE TABLE public.timesheets (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
     period_start DATE NOT NULL,
     period_end DATE NOT NULL,

@@ -2,7 +2,7 @@
 
 -- Philippine Tax Tables (Versioned / Effective-Dated)
 CREATE TABLE public.tax_tables (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL, -- e.g., 'TRAIN Law 2023', 'CREATE Law 2026'
     effective_from DATE NOT NULL,
     effective_to DATE,
@@ -14,7 +14,7 @@ CREATE TABLE public.tax_tables (
 
 -- Tax Brackets
 CREATE TABLE public.tax_brackets (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tax_table_id UUID NOT NULL REFERENCES public.tax_tables(id) ON DELETE CASCADE,
     pay_frequency TEXT NOT NULL, -- 'Daily', 'Weekly', 'Semi-monthly', 'Monthly', 'Annual'
     tax_status TEXT NOT NULL DEFAULT 'Single/Married', -- 'Single/Married', 'Head of Family' (if needed)
